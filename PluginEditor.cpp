@@ -21,34 +21,49 @@
 #include "PluginEditor.h"
 
 #define GAIN_ID "gain"
+#define DEPTH_ID "depth"
+#define RATE_ID "rate"
+#define DRYWET_ID "drywet"
 
 //==============================================================================
 PedalEmulatorAudioProcessorEditor::PedalEmulatorAudioProcessorEditor (PedalEmulatorAudioProcessor& p)
     : AudioProcessorEditor (&p), processor (p)
 {
+    // Master Gain
     sliderAttach = new AudioProcessorValueTreeState::SliderAttachment(processor.treeState, GAIN_ID, gainSlider);
-    
     gainSlider.setSliderStyle(Slider::SliderStyle::LinearVertical);
     gainSlider.setTextBoxStyle(Slider::TextBoxBelow, true, 50, 20);
     gainSlider.setRange(-60.0f, 0.0f, 0.01f); // min, max, increment
-    //gainSlider.setValue(-20.0f); // Set starting value
     gainSlider.addListener(this); //this points to AudioProcessorEditor class because that is the class that is listening for changes
     addAndMakeVisible(gainSlider);
     
-    paramValue = new AudioProcessorValueTreeState::SliderAttachment(processor.treeState, "parameter", paramDial);
-    
-    paramDial.setSliderStyle(Slider::SliderStyle::RotaryVerticalDrag);
-    paramDial.setRange(0.0f, 1.0f);
-    paramDial.setValue(0.5f);
-    paramDial.setTextBoxStyle(Slider::TextBoxBelow, true, 50, 20);
-    //paramDial.setPopupDisplayEnabled(true, true, this);
-    addAndMakeVisible(&paramDial);
+    // Depth
+    depthValue = new AudioProcessorValueTreeState::SliderAttachment(processor.treeState, DEPTH_ID, depthDial);
+    depthDial.setSliderStyle(Slider::SliderStyle::RotaryVerticalDrag);
+    depthDial.setTextBoxStyle(Slider::TextBoxBelow, true, 50, 20);
+    depthDial.setRange(0.0f, 100.0f);
+    depthDial.addListener(this); //this points to AudioProcessorEditor class because that is the class that is listening for changes
+    addAndMakeVisible(depthDial);
 
-    
+    // Rate
+    rateValue = new AudioProcessorValueTreeState::SliderAttachment(processor.treeState, RATE_ID, rateDial);
+    rateDial.setSliderStyle(Slider::SliderStyle::RotaryVerticalDrag);
+    rateDial.setTextBoxStyle(Slider::TextBoxBelow, true, 50, 20);
+    rateDial.setRange(0.2f, 10.0f, 0.01f);
+    rateDial.addListener(this); //this points to AudioProcessorEditor class because that is the class that is listening for changes
+    addAndMakeVisible(rateDial);
+
+    // Dry/Wet mix
+    drywetValue = new AudioProcessorValueTreeState::SliderAttachment(processor.treeState, DRYWET_ID, drywetDial);
+    drywetDial.setSliderStyle(Slider::SliderStyle::RotaryVerticalDrag);
+    drywetDial.setTextBoxStyle(Slider::TextBoxBelow, true, 50, 20);
+    drywetDial.setRange(0.0f, 100.0f);
+    drywetDial.addListener(this); //this points to AudioProcessorEditor class because that is the class that is listening for changes
+    addAndMakeVisible(drywetDial);
 
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
-    setSize (400, 300);
+    setSize (800, 500);
 }
 
 PedalEmulatorAudioProcessorEditor::~PedalEmulatorAudioProcessorEditor()
@@ -74,14 +89,18 @@ void PedalEmulatorAudioProcessorEditor::resized()
     // This is generally where you'll want to lay out the positions of any
     // subcomponents in your editor..
     gainSlider.setBounds((getWidth() / 2 - 50), (getHeight() / 2 - 75), 100, 150);
-    paramDial.setBounds(100, 90, 70, 70);
+    depthDial.setBounds(500, 90, 100, 100);
+    rateDial.setBounds(10, 10, 100, 100);
+    drywetDial.setBounds(600, 90, 100, 100);
 }
 
 void PedalEmulatorAudioProcessorEditor::sliderValueChanged(Slider* slider)
 {
-    if (slider == &gainSlider) // If slider pointer is the gain slider
+    if (slider == &gainSlider || slider == &depthDial || slider == &rateDial || slider == &drywetDial) // If slider pointer is the gain slider
     {
         processor.Gain = gainSlider.getValue(); // Gain is set to slider's current value
-        paramDial.setValue(processor.treeState.getParameter("parameter")->getValue(),juce::dontSendNotification);
+        processor.Depth = depthDial.getValue(); // Depth set to dial's current value
+        processor.Rate = rateDial.getValue(); // Rate set to dial's current value
+        processor.DryWet = drywetDial.getValue(); // Intensity set to dial's current value
     }
 }

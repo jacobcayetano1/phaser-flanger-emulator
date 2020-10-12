@@ -3369,7 +3369,8 @@ public:
 
 public:
 	/** reset members to initialized state */
-	virtual bool reset(double _sampleRate, int channel)
+	// Changed all functions to non-virtual
+	bool reset(double _sampleRate, int channel)
 	{
 		// --- create new buffer, 100mSec long
 		delay.reset(_sampleRate, channel);
@@ -3389,7 +3390,7 @@ public:
 	\param xn input
 	\return the processed sample
 	*/
-	virtual double processAudioSample(double xn, int channel)
+	float processAudioSample(float xn, int channel)
 	{
 		float input = xn;
 		float output = 0.0;
@@ -3398,10 +3399,10 @@ public:
 	}
 
 	/** return true: this object can process frames */
-	virtual bool canProcessAudioFrame() { return true; }
+	bool canProcessAudioFrame() { return true; }
 
 	/** process STEREO audio delay of frames */
-	virtual bool processAudioFrame(const float* inputFrame,		/* ptr to one frame of data: pInputFrame[0] = left, pInputFrame[1] = right, etc...*/
+	bool processAudioFrame(const float* inputFrame,		/* ptr to one frame of data: pInputFrame[0] = left, pInputFrame[1] = right, etc...*/
 		float* outputFrame,
 		uint32_t inputChannels,
 		uint32_t outputChannels,
@@ -3496,10 +3497,11 @@ public:
 		delay.setParameters(adParams);
 	}
 
+	LFO lfo;			///< the modulator
 private:
 	ModulatedDelayParameters parameters; ///< object parameters
 	AudioDelay delay;	///< the delay to modulate
-	LFO lfo;			///< the modulator
+	//LFO lfo;			///< the modulator
 };
 
 /**
@@ -3561,16 +3563,16 @@ const unsigned int PHASER_STAGES = 6;
 // --- these are the exact values from the National Semiconductor Phaser design (Changed to new values)
 // Min and max phaser rotation frequencies
 const double apf0_minF = 32.0;
-const double apf0_maxF = 1500.0;
+const double apf0_maxF = 300.0; // Originally 1500.0
 
 const double apf1_minF = 68.0;
-const double apf1_maxF = 3400.0;
+const double apf1_maxF = 700.0; //Originally 2500
 
 const double apf2_minF = 96.0;
-const double apf2_maxF = 4800.0;
+const double apf2_maxF = 1200.0; // Originally 4800.0
 
 const double apf3_minF = 212.0;
-const double apf3_maxF = 10000.0;
+const double apf3_maxF = 2000.0; // Originally 10000.0
 
 const double apf4_minF = 320.0;
 const double apf4_maxF = 16000.0;
