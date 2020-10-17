@@ -21,10 +21,15 @@
 #include "PluginEditor.h"
 #include "APF.h"
 
+// Defines
 #define GAIN_ID "gain"
 #define GAIN_NAME "Gain"
-#define PARAM_ID "parameter"
-#define PARAM_NAME "Parameter"
+#define DEPTH_ID "depth"
+#define DEPTH_NAME "Depth"
+#define RATE_ID "rate"
+#define RATE_NAME "Rate"
+#define DRYWET_ID "drywet"
+#define DRYWET_NAME "DryWet"
 
 //==============================================================================
 PedalEmulatorAudioProcessor::PedalEmulatorAudioProcessor()
@@ -43,9 +48,18 @@ PedalEmulatorAudioProcessor::PedalEmulatorAudioProcessor()
     // Create parameters here
     // treeState.createAndAddParameter(const String &parameterID, const String &parameterName, const String &parameterLabel={}, Category parameterCategory=AudioProcessorParameter::genericParameter)
     // Parameter name = parameter label
-    NormalisableRange<float> gainRange(-60.0f, 0.0f); // Range creation for parameter
-    treeState.createAndAddParameter(GAIN_ID, GAIN_NAME, GAIN_NAME, gainRange, -20.0f, nullptr, nullptr); // Parameter creation
-    treeState.createAndAddParameter(PARAM_ID, PARAM_NAME, PARAM_NAME, NormalisableRange<float>(0.0f, 1.0f), 0.0f, nullptr, nullptr);
+    NormalisableRange<float> gainRange(-60.0f, 0.0f); // Range creation for gain
+    treeState.createAndAddParameter(GAIN_ID, GAIN_NAME, GAIN_NAME, gainRange, -20.0f, nullptr, nullptr); // Gain parameter creation
+
+    NormalisableRange<float> depthRange(0.0f, 100.0f); // Range creation for depth
+    treeState.createAndAddParameter(DEPTH_ID, DEPTH_NAME, DEPTH_NAME, depthRange, 100.0f, nullptr, nullptr); // Depth parameter creation
+    
+    NormalisableRange<float> rateRange(0.2f, 10.0f); // Range creation for rate
+    treeState.createAndAddParameter(RATE_ID, RATE_NAME, RATE_NAME, rateRange, 0.5f, nullptr, nullptr); // Rate parameter creation
+
+    NormalisableRange<float> drywetRange(0.0f, 100.0f); // Range creation for intensity
+    treeState.createAndAddParameter(DRYWET_ID, DRYWET_NAME, DRYWET_NAME, drywetRange, 50.0f, nullptr, nullptr); // Intensity parameter creation
+    
     treeState.state = ValueTree("savedParams"); // Used for saving parameters
 }
 
@@ -133,8 +147,8 @@ void PedalEmulatorAudioProcessor::prepareToPlay (double sampleRate, int samplesP
     */
     phaser.reset(sampleRate, 0);
     phaser.reset(sampleRate, 1);
-    phaserShifter.reset(sampleRate,0);
-    phaserShifter.reset(sampleRate, 1);
+    flanger.reset(sampleRate, 0);
+    flanger.reset(sampleRate, 1);
 }
 
 void PedalEmulatorAudioProcessor::releaseResources()
@@ -206,14 +220,10 @@ void PedalEmulatorAudioProcessor::processBlock (AudioBuffer<float>& buffer, Midi
             //channelData[sample] = apf0.processAudioSample(channelData[sample],channel) * Decibels::decibelsToGain(Gain);
             //phaser.setParameters(phaser.getParameters());
             updateParameters();
-            channelData[sample] = phaser.processAudioSample(channelData[sample], channel) * Decibels::decibelsToGain(Gain);
-            
-            // PhaseShifter
-            //updateParameters();
-            //channelData[sample] = phaserShifter.processAudioSample(channelData[sample], channel) * Decibels::decibelsToGain(Gain);
+            channelData[sample] = phaser.processAudioSample(channelData[sample], channel);
+            channelData[sample] = flanger.processAudioSample(channelData[sample], channel);
+            channelData[sample] = channelData[sample] * Decibels::decibelsToGain(Gain);
         }
-
-        // ..do something to the data...
     }
 }
 
