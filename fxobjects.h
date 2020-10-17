@@ -89,14 +89,14 @@ returns interpolated value
 \param x - the interpolation location
 \return the interpolated value or y1 if the x coordinates are unusable
 */
-inline double doLinearInterpolation(double x1, double x2, double y1, double y2, double x)
+inline float doLinearInterpolation(float x1, float x2, float y1, float y2, float x)
 {
-	double denom = x2 - x1;
+	float denom = x2 - x1;
 	if (denom == 0)
 		return y1; // --- should not ever happen
 
 	// --- calculate decimal position of x
-	double dx = (x - x1) / (x2 - x1);
+	float dx = (x - x1) / (x2 - x1);
 
 	// --- use weighted sum method of interpolating
 	return dx*y2 + (1 - dx)*y1;
@@ -114,7 +114,7 @@ returns interpolated value
 \param x - the interpolation location as a fractional distance between x1 and x2 (which are not needed)
 \return the interpolated value or y2 if the interpolation is outside the x interval
 */
-inline double doLinearInterpolation(double y1, double y2, double fractional_X)
+inline float doLinearInterpolation(float y1, float y2, float fractional_X)
 {
 	// --- check invalid condition
 	if (fractional_X >= 1.0) return y2;
@@ -164,7 +164,7 @@ inline double doLagrangeInterpolation(double* x, double* y, int n, double xbar)
 \param minValue - lower bound limit
 \param maxValue - upper bound limit
 */
-inline void boundValue(double& value, double minValue, double maxValue)
+inline void boundValue(float& value, float minValue, float maxValue)
 {
 	value = fmin(value, maxValue);
 	value = fmax(value, minValue);
@@ -181,7 +181,7 @@ inline void boundValue(double& value, double minValue, double maxValue)
 \param maxValue - upper modulation limit
 \return the modulated value
 */
-inline double doUnipolarModulationFromMin(double unipolarModulatorValue, double minValue, double maxValue)
+inline float doUnipolarModulationFromMin(float unipolarModulatorValue, float minValue, float maxValue)
 {
 	// --- UNIPOLAR bound
 	boundValue(unipolarModulatorValue, 0.0, 1.0);
@@ -201,7 +201,7 @@ inline double doUnipolarModulationFromMin(double unipolarModulatorValue, double 
 \param maxValue - upper modulation limit
 \return the modulated value
 */
-inline double doUnipolarModulationFromMax(double unipolarModulatorValue, double minValue, double maxValue)
+inline float doUnipolarModulationFromMax(float unipolarModulatorValue, float minValue, float maxValue)
 {
 	// --- UNIPOLAR bound
 	boundValue(unipolarModulatorValue, 0.0, 1.0);
@@ -221,14 +221,14 @@ inline double doUnipolarModulationFromMax(double unipolarModulatorValue, double 
 \param maxValue - upper modulation limit
 \return the modulated value
 */
-inline double doBipolarModulation(double bipolarModulatorValue, double minValue, double maxValue)
+inline float doBipolarModulation(float bipolarModulatorValue, float minValue, float maxValue)
 {
 	// --- BIPOLAR bound
 	boundValue(bipolarModulatorValue, -1.0, 1.0);
 
 	// --- calculate range and midpoint
-	double halfRange = (maxValue - minValue) / 2.0;
-	double midpoint = halfRange + minValue;
+	float halfRange = (maxValue - minValue) / 2.0;
+	float midpoint = halfRange + minValue;
 
 	return bipolarModulatorValue*(halfRange) + midpoint;
 }
@@ -242,7 +242,7 @@ inline double doBipolarModulation(double bipolarModulatorValue, double minValue,
 \param value - value to convert
 \return the bipolar value
 */
-inline double unipolarToBipolar(double value)
+inline float unipolarToBipolar(float value)
 {
 	return 2.0*value - 1.0;
 }
@@ -256,7 +256,7 @@ inline double unipolarToBipolar(double value)
 \param value - value to convert
 \return the unipolar value
 */
-inline double bipolarToUnipolar(double value)
+inline float bipolarToUnipolar(float value) // changed to flaot
 {
 	return 0.5*value + 0.5;
 }
@@ -1196,7 +1196,7 @@ public:
 	--- optional processing function
 		e.g. does not make sense for some objects to implement this such as inherently mono objects like Biquad
 			 BUT a processor that must use both left and right channels (ping-pong delay) would require it */
-	virtual bool processAudioFrame(const float* inputFrame,		/* ptr to one frame of data: pInputFrame[0] = left, pInputFrame[1] = right, etc...*/
+	virtual bool processAudioFrame(float* inputFrame, // Removed const float		/* ptr to one frame of data: pInputFrame[0] = left, pInputFrame[1] = right, etc...*/
 								   float* outputFrame,
 								   uint32_t inputChannels,
 								   uint32_t outputChannels, int channel)
@@ -1222,10 +1222,10 @@ struct SignalGenData
 {
 	SignalGenData() {}
 
-	double normalOutput = 0.0;			///< normal
-	double invertedOutput = 0.0;		///< inverted
-	double quadPhaseOutput_pos = 0.0;	///< 90 degrees out
-	double quadPhaseOutput_neg = 0.0;	///< -90 degrees out
+	float normalOutput = 0.0;			///< normal
+	float invertedOutput = 0.0;		///< inverted
+	float quadPhaseOutput_pos = 0.0;	///< 90 degrees out
+	float quadPhaseOutput_neg = 0.0;	///< -90 degrees out
 };
 
 /**
@@ -2383,7 +2383,7 @@ public:
 	}
 
 	/** read an arbitrary location that includes a fractional sample */
-	T readBuffer(double delayInFractionalSamples)
+	T readBuffer(float delayInFractionalSamples)
 	{
 		// --- truncate delayInFractionalSamples and read the int part
 		T y1 = readBuffer((int)delayInFractionalSamples);
@@ -2397,7 +2397,7 @@ public:
 		T y2 = readBuffer((int)delayInFractionalSamples + 1);
 
 		// --- get fractional part
-		double fraction = delayInFractionalSamples - (int)delayInFractionalSamples;
+		float fraction = delayInFractionalSamples - (int)delayInFractionalSamples;
 
 		// --- do the interpolation (you could try different types here)
 		return doLinearInterpolation(y1, y2, fraction);
@@ -2718,6 +2718,8 @@ struct AudioDelayParameters
 		updateType = params.updateType;
 		leftDelay_mSec = params.leftDelay_mSec;
 		rightDelay_mSec = params.rightDelay_mSec;
+		delay_mSec[0] = params.delay_mSec[0];
+		delay_mSec[1] = params.delay_mSec[1];
 		delayRatio_Pct = params.delayRatio_Pct;
 
 		return *this;
@@ -2725,14 +2727,16 @@ struct AudioDelayParameters
 
 	// --- individual parameters
 	delayAlgorithm algorithm = delayAlgorithm::kNormal; ///< delay algorithm
-	double wetLevel_dB = -3.0;	///< wet output level in dB
-	double dryLevel_dB = -3.0;	///< dry output level in dB
-	double feedback_Pct = 0.0;	///< feedback as a % value
+	float wetLevel_dB = -3.0;	///< wet output level in dB
+	float dryLevel_dB = -3.0;	///< dry output level in dB
+	float feedback_Pct = 50.0;	///< feedback as a % value
 
 	delayUpdateType updateType = delayUpdateType::kLeftAndRight;///< update algorithm
-	double leftDelay_mSec = 0.0;	///< left delay time
-	double rightDelay_mSec = 0.0;	///< right delay time
-	double delayRatio_Pct = 100.0;	///< dela ratio: right length = (delayRatio)*(left length)
+	float leftDelay_mSec = 0.0;	///< left delay time
+	float rightDelay_mSec = 0.0;	///< right delay time
+	float delay_mSec[2] = { 0.0,0.0 }; //delay time (2 channel)
+	float delayRatio_Pct = 100.0;	///< dela ratio: right length = (delayRatio)*(left length)
+	float output_AD = 0.0;
 };
 
 /**
@@ -2768,11 +2772,14 @@ public:
 			// --- just flush buffer and return
 			delayBuffer_L.flushBuffer();
 			delayBuffer_R.flushBuffer();
+			delayBuffer[0].flushBuffer();
+			delayBuffer[1].flushBuffer();
 			return true;
 		}
 
 		// --- create new buffer, will store sample rate and length(mSec)
 		createDelayBuffers(_sampleRate, bufferLength_mSec);
+		//float output_AD = 0.0;
 
 		return true;
 	}
@@ -2783,23 +2790,38 @@ public:
 	\return the processed sample
 	*/
 	virtual float processAudioSample(float xn, int channel) // changed to float
-	//virtual double processAudioSample(double xn)
 	{
 		// --- read delay
-		float yn = delayBuffer_L.readBuffer(delayInSamples_L); // changed to float
-		//double yn = delayBuffer_L.readBuffer(delayInSamples_L);
+		//float yn = delayBuffer_L.readBuffer(delayInSamples_L); // changed to float
+		float yn = delayBuffer[channel].readBuffer(delayInSamples[channel]);
+		
+		/*float yn = 0;
+		if (channel == 0)
+		{
+			yn = delayBuffer_L.readBuffer(delayInSamples_L);
+		}
+		else
+		{
+			yn = delayBuffer_R.readBuffer(delayInSamples_R);
+		}*/
 
 		// --- create input for delay buffer
 		float dn = xn + (parameters.feedback_Pct / 100.0) * yn; // changed to float
-		//double dn = xn + (parameters.feedback_Pct / 100.0) * yn; 
 
 		// --- write to delay buffer
-		delayBuffer_L.writeBuffer(dn);
+		delayBuffer[channel].writeBuffer(dn);
+		/*if (channel == 0)
+		{
+			delayBuffer_L.writeBuffer(dn);
+		}
+		else
+		{
+			delayBuffer_R.writeBuffer(dn);
+		}*/
 
 		// --- form mixture out = dry*xn + wet*yn
 		float output = dryMix * xn + wetMix * yn; // changed to float
-		//double output = dryMix*xn + wetMix*yn;
-
+		//output = output * 0.5; // breaks here
 		return output;
 	}
 
@@ -2807,7 +2829,7 @@ public:
 	virtual bool canProcessAudioFrame() { return true; }
 
 	/** process STEREO audio delay in frames */
-	virtual bool processAudioFrame(const float* inputFrame,		/* ptr to one frame of data: pInputFrame[0] = left, pInputFrame[1] = right, etc...*/
+	virtual bool processAudioFrame(const float* inputFrame, // Removed const float	/* ptr to one frame of data: pInputFrame[0] = left, pInputFrame[1] = right, etc...*/
 		float* outputFrame,
 		uint32_t inputChannels,
 		uint32_t outputChannels,
@@ -2827,6 +2849,7 @@ public:
 		{
 			// --- process left channel only
 			outputFrame[0] = processAudioSample(inputFrame[0], channel);
+			parameters.output_AD = outputFrame[0];
 			return true;
 		}
 
@@ -2835,22 +2858,22 @@ public:
 		// --- pick up inputs
 		//
 		// --- LEFT channel
-		double xnL = inputFrame[0];
+		float xnL = inputFrame[0];
 
 		// --- RIGHT channel (duplicate left input if mono-in)
-		double xnR = inputChannels > 1 ? inputFrame[1] : xnL;
+		float xnR = inputChannels > 1 ? inputFrame[1] : xnL;
 
 		// --- read delay LEFT
-		double ynL = delayBuffer_L.readBuffer(delayInSamples_L);
+		float ynL = delayBuffer_L.readBuffer(delayInSamples_L);
 
 		// --- read delay RIGHT
-		double ynR = delayBuffer_R.readBuffer(delayInSamples_R);
+		float ynR = delayBuffer_R.readBuffer(delayInSamples_R);
 
 		// --- create input for delay buffer with LEFT channel info
-		double dnL = xnL + (parameters.feedback_Pct / 100.0) * ynL;
+		float dnL = xnL + (parameters.feedback_Pct / 100.0) * ynL;
 
 		// --- create input for delay buffer with RIGHT channel info
-		double dnR = xnR + (parameters.feedback_Pct / 100.0) * ynR;
+		float dnR = xnR + (parameters.feedback_Pct / 100.0) * ynR;
 
 		// --- decode
 		if (parameters.algorithm == delayAlgorithm::kNormal)
@@ -2871,10 +2894,10 @@ public:
 		}
 
 		// --- form mixture out = dry*xn + wet*yn
-		double outputL = dryMix*xnL + wetMix*ynL;
+		float outputL = dryMix*xnL + wetMix*ynL;
 
 		// --- form mixture out = dry*xn + wet*yn
-		double outputR = dryMix*xnR + wetMix*ynR;
+		float outputR = dryMix*xnR + wetMix*ynR;
 
 		// --- set left channel
 		outputFrame[0] = outputL;
@@ -2911,25 +2934,31 @@ public:
 		{
 			// --- set left and right delay times
 			// --- calculate total delay time in samples + fraction
-			double newDelayInSamples_L = parameters.leftDelay_mSec*(samplesPerMSec);
-			double newDelayInSamples_R = parameters.rightDelay_mSec*(samplesPerMSec);
+			//double newDelayInSamples_L = parameters.leftDelay_mSec*(samplesPerMSec);
+			//double newDelayInSamples_R = parameters.rightDelay_mSec*(samplesPerMSec);
+			float newDelayInSamples_L = parameters.delay_mSec[0]*(samplesPerMSec);
+			float newDelayInSamples_R = parameters.delay_mSec[1]*(samplesPerMSec);
 
 			// --- new delay time with fraction
 			delayInSamples_L = newDelayInSamples_L;
 			delayInSamples_R = newDelayInSamples_R;
+			delayInSamples[0] = newDelayInSamples_L;
+			delayInSamples[1] = newDelayInSamples_R;
 		}
 		else if (parameters.updateType == delayUpdateType::kLeftPlusRatio)
 		{
 			// --- get and validate ratio
-			double delayRatio = parameters.delayRatio_Pct / 100.0;
+			float delayRatio = parameters.delayRatio_Pct / 100.0;
 			boundValue(delayRatio, 0.0, 1.0);
 
 			// --- calculate total delay time in samples + fraction
-			double newDelayInSamples = parameters.leftDelay_mSec*(samplesPerMSec);
+			float newDelayInSamples = parameters.leftDelay_mSec*(samplesPerMSec);
 
 			// --- new delay time with fraction
 			delayInSamples_L = newDelayInSamples;
 			delayInSamples_R = delayInSamples_L*delayRatio;
+			delayInSamples[0] = newDelayInSamples;
+			delayInSamples[1] = delayInSamples[0] * delayRatio;
 		}
 	}
 
@@ -2947,23 +2976,27 @@ public:
 																			   // --- create new buffer
 		delayBuffer_L.createCircularBuffer(bufferLength);
 		delayBuffer_R.createCircularBuffer(bufferLength);
+		delayBuffer[0].createCircularBuffer(bufferLength);
+		delayBuffer[1].createCircularBuffer(bufferLength);
 	}
 
 private:
 	AudioDelayParameters parameters; ///< object parameters
 
-	double sampleRate = 0.0;		///< current sample rate
-	double samplesPerMSec = 0.0;	///< samples per millisecond, for easy access calculation
-	double delayInSamples_L = 0.0;	///< double includes fractional part
-	double delayInSamples_R = 0.0;	///< double includes fractional part
-	double bufferLength_mSec = 0.0;	///< buffer length in mSec
+	float sampleRate = 0.0;		///< current sample rate
+	float samplesPerMSec = 0.0;	///< samples per millisecond, for easy access calculation
+	float delayInSamples_L = 0.0;	///< double includes fractional part
+	float delayInSamples_R = 0.0;	///< double includes fractional part
+	float delayInSamples[2] = { 0.0,0.0 }; // delay samples (2 channels)
+	float bufferLength_mSec = 0.0;	///< buffer length in mSec
 	unsigned int bufferLength = 0;	///< buffer length in samples
-	double wetMix = 0.707; ///< wet output default = -3dB
-	double dryMix = 0.707; ///< dry output default = -3dB
+	float wetMix = 0.707; ///< wet output default = -3dB
+	float dryMix = 0.707; ///< dry output default = -3dB
 
 	// --- delay buffer of doubles
-	CircularBuffer<double> delayBuffer_L;	///< LEFT delay buffer of doubles
-	CircularBuffer<double> delayBuffer_R;	///< RIGHT delay buffer of doubles
+	CircularBuffer<float> delayBuffer_L;	///< LEFT delay buffer of doubles
+	CircularBuffer<float> delayBuffer_R;	///< RIGHT delay buffer of doubles
+	CircularBuffer<float> delayBuffer[2]; // array buffer (2 channels)
 };
 
 
@@ -3078,13 +3111,14 @@ protected:
 	// --- sample rate
 	double sampleRate = 0.0;			///< sample rate
 
+	// changed to float
 	// --- timebase variables
-	double modCounter = 0.0;			///< modulo counter [0.0, +1.0]
-	double phaseInc = 0.0;				///< phase inc = fo/fs
-	double modCounterQP = 0.25;			///<Quad Phase modulo counter [0.0, +1.0]
+	float modCounter = 0.0;			///< modulo counter [0.0, +1.0]
+	float phaseInc = 0.0;				///< phase inc = fo/fs
+	float modCounterQP = 0.25;			///<Quad Phase modulo counter [0.0, +1.0]
 
 	/** check the modulo counter and wrap if needed */
-	inline bool checkAndWrapModulo(double& moduloCounter, double phaseInc)
+	inline bool checkAndWrapModulo(float& moduloCounter, double phaseInc)
 	{
 		// --- for positive frequencies
 		if (phaseInc > 0 && moduloCounter >= 1.0)
@@ -3104,7 +3138,7 @@ protected:
 	}
 
 	/** advanvce the modulo counter, then check the modulo counter and wrap if needed */
-	inline bool advanceAndCheckWrapModulo(double& moduloCounter, double phaseInc)
+	inline bool advanceAndCheckWrapModulo(float& moduloCounter, double phaseInc)
 	{
 		// --- advance counter
 		moduloCounter += phaseInc;
@@ -3127,15 +3161,15 @@ protected:
 	}
 
 	/** advanvce the modulo counter */
-	inline void advanceModulo(double& moduloCounter, double phaseInc) { moduloCounter += phaseInc; }
-
-	const double B = 4.0 / kPi;
-	const double C = -4.0 / (kPi* kPi);
-	const double P = 0.225;
+	inline void advanceModulo(float& moduloCounter, double phaseInc) { moduloCounter += phaseInc; }
+	// changed to float
+	const float B = 4.0 / kPi;
+	const float C = -4.0 / (kPi* kPi);
+	const float P = 0.225;
 	/** parabolic sinusoidal calcualtion; NOTE: input is -pi to +pi http://devmaster.net/posts/9648/fast-and-accurate-sine-cosine */
-	inline double parabolicSine(double angle)
+	inline float parabolicSine(float angle) // changed to float
 	{
-		double y = B * angle + C * angle * fabs(angle);
+		float y = B * angle + C * angle * fabs(angle);
 		y = P * (y * fabs(y) - y) + y;
 		return y;
 	}
@@ -3338,9 +3372,10 @@ struct ModulatedDelayParameters
 
 	// --- individual parameters
 	modDelaylgorithm algorithm = modDelaylgorithm::kFlanger; ///< mod delay algorithm
-	double lfoRate_Hz = 0.0;	///< mod delay LFO rate in Hz
-	double lfoDepth_Pct = 0.0;	///< mod delay LFO depth in %
-	double feedback_Pct = 0.0;	///< feedback in %
+	float lfoRate_Hz = 0.0;	///< mod delay LFO rate in Hz
+	float lfoDepth_Pct = 0.0;	///< mod delay LFO depth in %
+	float feedback_Pct = 0.0;	///< feedback in %
+	float output = 0.0;
 };
 
 /**
@@ -3392,33 +3427,17 @@ public:
 	*/
 	float processAudioSample(float xn, int channel)
 	{
-		float input = xn;
-		float output = 0.0;
-		processAudioFrame(&input, &output, 1, 1, channel);
-		return output;
-	}
-
-	/** return true: this object can process frames */
-	bool canProcessAudioFrame() { return true; }
-
-	/** process STEREO audio delay of frames */
-	bool processAudioFrame(const float* inputFrame,		/* ptr to one frame of data: pInputFrame[0] = left, pInputFrame[1] = right, etc...*/
-		float* outputFrame,
-		uint32_t inputChannels,
-		uint32_t outputChannels,
-		int channel)
-	{
-		// --- make sure we have input and outputs
-		if (inputChannels == 0 || outputChannels == 0)
-			return false;
-
+		//float input = xn;
+		//float output = 0.0;
+		//processAudioFrame(input, output, 1, 1, channel);
+		//return xn * 0.5; //works up to here
 		// --- render LFO
 		SignalGenData lfoOutput = lfo.renderAudioOutput();
 
 		// --- setup delay modulation
 		AudioDelayParameters params = delay.getParameters();
-		double minDelay_mSec = 0.0;
-		double maxDepth_mSec = 0.0;
+		float minDelay_mSec = 0.0;
+		float maxDepth_mSec = 0.0;
 
 		// --- set delay times, wet/dry and feedback
 		if (parameters.algorithm == modDelaylgorithm::kFlanger)
@@ -3446,26 +3465,111 @@ public:
 		}
 
 		// --- calc modulated delay times
-		double depth = parameters.lfoDepth_Pct / 100.0;
-		double modulationMin = minDelay_mSec;
-		double modulationMax = minDelay_mSec + maxDepth_mSec;
+		float depth = parameters.lfoDepth_Pct / 100.0;
+		float modulationMin = minDelay_mSec;
+		float modulationMax = minDelay_mSec + maxDepth_mSec;
 
 		// --- flanger - unipolar
 		if (parameters.algorithm == modDelaylgorithm::kFlanger)
-			params.leftDelay_mSec = doUnipolarModulationFromMin(bipolarToUnipolar(depth * lfoOutput.normalOutput),
-															     modulationMin, modulationMax);
+			params.delay_mSec[channel] = doUnipolarModulationFromMin(bipolarToUnipolar(depth * lfoOutput.normalOutput),
+				modulationMin, modulationMax);
 		else
-			params.leftDelay_mSec = doBipolarModulation(depth * lfoOutput.normalOutput, modulationMin, modulationMax);
+			params.delay_mSec[channel] = doBipolarModulation(depth * lfoOutput.normalOutput, modulationMin, modulationMax);
 
 
 		// --- set right delay to match (*Hint Homework!)
-		params.rightDelay_mSec = params.leftDelay_mSec;
+		/*
+		if (channel == 0)
+		{
+			params.delay_mSec[1] = params.delay_mSec[0];
+		}
+		else
+		{
+			params.delay_mSec[0] = params.delay_mSec[1];
+		}*/
 
 		// --- modulate the delay
 		delay.setParameters(params);
 
 		// --- just call the function and pass our info in/out
-		return delay.processAudioFrame(inputFrame, outputFrame, inputChannels, outputChannels, channel);
+		return delay.processAudioSample(xn, channel);
+		//return xn * 0.5; // works up to here
+	}
+
+	/** return true: this object can process frames */
+	bool canProcessAudioFrame() { return true; }
+
+	/** process STEREO audio delay of frames */
+	bool processAudioFrame(const float* inputFrame, // Removed const float /* ptr to one frame of data: pInputFrame[0] = left, pInputFrame[1] = right, etc...*/
+		float* outputFrame,
+		uint32_t inputChannels,
+		uint32_t outputChannels,
+		int channel)
+	{
+		// --- make sure we have input and outputs
+		if (inputChannels == 0 || outputChannels == 0)
+			return false;
+
+		//setParameters(parameters);
+
+		// --- render LFO
+		SignalGenData lfoOutput = lfo.renderAudioOutput();
+
+		// --- setup delay modulation
+		AudioDelayParameters params = delay.getParameters();
+		float minDelay_mSec = 0.0;
+		float maxDepth_mSec = 0.0;
+
+		// --- set delay times, wet/dry and feedback
+		if (parameters.algorithm == modDelaylgorithm::kFlanger)
+		{
+			minDelay_mSec = 0.1;
+			maxDepth_mSec = 7.0;
+			params.wetLevel_dB = -3.0;
+			params.dryLevel_dB = -3.0;
+		}
+		if (parameters.algorithm == modDelaylgorithm::kChorus)
+		{
+			minDelay_mSec = 10.0;
+			maxDepth_mSec = 30.0;
+			params.wetLevel_dB = -3.0;
+			params.dryLevel_dB = -0.0;
+			params.feedback_Pct = 0.0;
+		}
+		if (parameters.algorithm == modDelaylgorithm::kVibrato)
+		{
+			minDelay_mSec = 0.0;
+			maxDepth_mSec = 7.0;
+			params.wetLevel_dB = 0.0;
+			params.dryLevel_dB = -96.0;
+			params.feedback_Pct = 0.0;
+		}
+
+		// --- calc modulated delay times
+		float depth = parameters.lfoDepth_Pct / 100.0;
+		float modulationMin = minDelay_mSec;
+		float modulationMax = minDelay_mSec + maxDepth_mSec;
+
+		// --- flanger - unipolar
+		if (parameters.algorithm == modDelaylgorithm::kFlanger)
+			params.delay_mSec[channel] = doUnipolarModulationFromMin(bipolarToUnipolar(depth * lfoOutput.normalOutput),
+															     modulationMin, modulationMax);
+		else
+			params.delay_mSec[channel] = doBipolarModulation(depth * lfoOutput.normalOutput, modulationMin, modulationMax);
+
+
+		// --- set right delay to match (*Hint Homework!)
+		//params.rightDelay_mSec = params.leftDelay_mSec;
+
+		// --- modulate the delay
+		delay.setParameters(params);
+
+		// --- just call the function and pass our info in/out
+		delay.processAudioFrame(inputFrame, outputFrame, inputChannels, outputChannels, channel);
+		parameters.output = delay.getParameters().output_AD;
+		return true;
+		//outputFrame = inputFrame * 0.5; //breaks here
+		//return outputFrame;
 	}
 
 	/** get parameters: note use of custom structure for passing param data */
@@ -3494,12 +3598,14 @@ public:
 
 		AudioDelayParameters adParams = delay.getParameters();
 		adParams.feedback_Pct = parameters.feedback_Pct;
+		parameters.output = delay.getParameters().output_AD;
 		delay.setParameters(adParams);
 	}
 
 	LFO lfo;			///< the modulator
-private:
+protected:
 	ModulatedDelayParameters parameters; ///< object parameters
+private:
 	AudioDelay delay;	///< the delay to modulate
 	//LFO lfo;			///< the modulator
 };
@@ -3562,6 +3668,7 @@ const unsigned int PHASER_STAGES = 6;
 
 // --- these are the exact values from the National Semiconductor Phaser design (Changed to new values)
 // Min and max phaser rotation frequencies
+
 const double apf0_minF = 32.0;
 const double apf0_maxF = 300.0; // Originally 1500.0
 
@@ -3579,6 +3686,27 @@ const double apf4_maxF = 16000.0;
 
 const double apf5_minF = 636.0;
 const double apf5_maxF = 20480.0;
+
+
+/*
+const double apf0_minF = 56.0; // Originally 32.0
+const double apf0_maxF = 1800.0; // Originally 1500.0
+
+const double apf1_minF = 56.0; // Originally 68.0
+const double apf1_maxF = 1800.0; //Originally 2500
+
+const double apf2_minF = 350.0; // Originally 96.0
+const double apf2_maxF = 10500.0; // Originally 4800.0
+
+const double apf3_minF = 350.0; // Originally 212.0
+const double apf3_maxF = 10500.0; // Originally 10000.0
+
+const double apf4_minF = 320.0;
+const double apf4_maxF = 16000.0;
+
+const double apf5_minF = 636.0;
+const double apf5_maxF = 20480.0;
+*/
 
 /**
 \class PhaseShifter
@@ -3904,11 +4032,11 @@ struct SimpleDelayParameters
 	}
 
 	// --- individual parameters
-	double delayTime_mSec = 0.0;	///< delay tine in mSec
+	float delayTime_mSec = 0.0;	///< delay tine in mSec
 	bool interpolate = false;		///< interpolation flag (diagnostics usually)
 
 	// --- outbound parameters
-	double delay_Samples = 0.0;		///< current delay in samples; other objects may need to access this information
+	float delay_Samples = 0.0;		///< current delay in samples; other objects may need to access this information
 };
 
 /**
@@ -4020,20 +4148,20 @@ public:
 	}
 
 	/** read delay at current location */
-	double readDelayAtTime_mSec(double _delay_mSec)
+	float readDelayAtTime_mSec(float _delay_mSec)
 	{
 		// --- calculate total delay time in samples + fraction
-		double _delay_Samples = _delay_mSec*(samplesPerMSec);
+		float _delay_Samples = _delay_mSec*(samplesPerMSec);
 
 		// --- simple read
 		return delayBuffer.readBuffer(_delay_Samples);
 	}
 
 	/** read delay at a percentage of total length */
-	double readDelayAtPercentage(double delayPercent)
+	float readDelayAtPercentage(float delayPercent)
 	{
 		// --- simple read
-		return delayBuffer.readBuffer((delayPercent / 100.0)*simpleDelayParameters.delay_Samples);
+		return delayBuffer.readBuffer((float)(delayPercent / 100.0)*simpleDelayParameters.delay_Samples);
 	}
 
 	/** write a new value into the delay */
@@ -4046,13 +4174,13 @@ public:
 private:
 	SimpleDelayParameters simpleDelayParameters; ///< object parameters
 
-	double sampleRate = 0.0;		///< sample rate
-	double samplesPerMSec = 0.0;	///< samples per millisecond (for arbitrary access)
-	double bufferLength_mSec = 0.0; ///< total buffer lenth in mSec
+	float sampleRate = 0.0;		///< sample rate
+	float samplesPerMSec = 0.0;	///< samples per millisecond (for arbitrary access)
+	float bufferLength_mSec = 0.0; ///< total buffer lenth in mSec
 	unsigned int bufferLength = 0;	///< buffer length in samples
 
 	// --- delay buffer of doubles
-	CircularBuffer<double> delayBuffer; ///< circular buffer for delay
+	CircularBuffer<float> delayBuffer; ///< circular buffer for delay
 };
 
 

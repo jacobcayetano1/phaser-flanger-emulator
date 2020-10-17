@@ -42,7 +42,7 @@ struct PhaserStruct {
 	}
 	// --- individual parameters
 	// LFO parameters
-	float lfoRate = 1000.0f;
+	float lfoRate = 1.0f;
 	float lfoDepth = 100.0f;
 	float intensity = 75.0f;
 	bool quadPhaseLFO = false;
@@ -68,25 +68,8 @@ public:
 
 		for (int i = 0; i < APF_COUNT; i++)
 		{
-			switch(i)
-			{
-			case 0:
-				filterParams.fc = 100.0; // set critical frequency
-				apf[i].setParameters(filterParams);
-				break;
-			case 1:
-				filterParams.fc = 200.0; // set critical frequency
-				apf[i].setParameters(filterParams);
-				break;
-			case 2:
-				filterParams.fc = 400.0; // set critical frequency
-				apf[i].setParameters(filterParams);
-				break;
-			case 3:
-				filterParams.fc = 800.0; // set critical frequency
-				apf[i].setParameters(filterParams);
-				break;
-			}
+			filterParams.fc = 100.0; // set critical frequency
+			apf[i].setParameters(filterParams);
 		}
 	};
 	~Phaser(void) {};
