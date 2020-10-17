@@ -73,11 +73,6 @@ float Biquad::processAudioSample(float xn, int channel) // changed to float
 	if (parameters.biquadCalcType == biquadAlgorithm::kDirect)
 	{
 		// --- 1)  form output y(n) = a0*x(n) + a1*x(n-1) + a2*x(n-2) - b1*y(n-1) - b2*y(n-2)
-		/*double yn = coeffArray[a0] * xn + 
-			coeffArray[a1] * stateArray[x_z1] +
-			coeffArray[a2] * stateArray[x_z2] -
-			coeffArray[b1] * stateArray[y_z1] -
-			coeffArray[b2] * stateArray[y_z2]; */
 		float yn = coeffArray[a0] * xn +  // changed to float
 					coeffArray[a1] * stateArray[channel][x_z1] +
 					coeffArray[a2] * stateArray[channel][x_z2] -
@@ -1011,6 +1006,7 @@ void AudioDetector::setReleaseTime(double release_in_ms, bool forceCalc)
 /**
 \brief generates the oscillator output for one sample interval; note that there are multiple outputs.
 */
+// changed to work with float
 const SignalGenData LFO::renderAudioOutput()
 {
 	// --- always first!
@@ -1029,13 +1025,13 @@ const SignalGenData LFO::renderAudioOutput()
 	if (waveform == generatorWaveform::kSin)
 	{
 		// --- calculate normal angle
-		double angle = modCounter*2.0*kPi - kPi;
+		float angle = modCounter*2.0f*kPi - kPi;
 
 		// --- norm output with parabolicSine approximation
 		output.normalOutput = parabolicSine(-angle);
 
 		// --- calculate QP angle
-		angle = modCounterQP*2.0*kPi - kPi;
+		angle = modCounterQP*2.0f*kPi - kPi;
 
 		// --- calc QP output
 		output.quadPhaseOutput_pos = parabolicSine(-angle);
@@ -1046,13 +1042,13 @@ const SignalGenData LFO::renderAudioOutput()
 		output.normalOutput = unipolarToBipolar(modCounter);
 
 		// bipolar triagle
-		output.normalOutput = 2.0*fabs(output.normalOutput) - 1.0;
+		output.normalOutput = 2.0f*(float)fabs(output.normalOutput) - 1.0f;
 
 		// -- quad phase
 		output.quadPhaseOutput_pos = unipolarToBipolar(modCounterQP);
 
 		// bipolar triagle
-		output.quadPhaseOutput_pos = 2.0*fabs(output.quadPhaseOutput_pos) - 1.0;
+		output.quadPhaseOutput_pos = 2.0f*(float)fabs(output.quadPhaseOutput_pos) - 1.0f;
 	}
 	else if (waveform == generatorWaveform::kSaw)
 	{

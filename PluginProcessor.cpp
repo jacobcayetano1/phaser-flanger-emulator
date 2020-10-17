@@ -205,23 +205,21 @@ void PedalEmulatorAudioProcessor::processBlock (AudioBuffer<float>& buffer, Midi
 
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
-        auto* channelData = buffer.getWritePointer(channel);
+        const float* inputData = buffer.getReadPointer(channel);
+        float* channelData = buffer.getWritePointer(channel);
+        //auto* channelOutput = channelData;
 
         for (int sample = 0; sample < buffer.getNumSamples(); ++sample) // Goes through all samples in buffer
         {
             // *Note: ASPIK works with double while JUCE works with float, how to integrate?
-            
+
             // Test processing
             //channelData[sample] = channelData[sample] * Decibels::decibelsToGain(-20.0);
-            
+
             // Actual processing
-            //apf0.setParameters(apf0.getParameters()); // includes calculateFilterCoeffs()
-            //treeState.getParameter("parameter")->setValue(apf0.coeffArray[a0]); // Used to check coeff value
-            //channelData[sample] = apf0.processAudioSample(channelData[sample],channel) * Decibels::decibelsToGain(Gain);
-            //phaser.setParameters(phaser.getParameters());
             updateParameters();
-            channelData[sample] = phaser.processAudioSample(channelData[sample], channel);
-            channelData[sample] = flanger.processAudioSample(channelData[sample], channel);
+            channelData[sample] = phaser.processAudioSample(inputData[sample], channel);
+            channelData[sample] = flanger.processAudioSample(inputData[sample], channel);
             channelData[sample] = channelData[sample] * Decibels::decibelsToGain(Gain);
         }
     }
