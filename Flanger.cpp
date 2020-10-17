@@ -21,15 +21,16 @@
 */
 
 #include "Flanger.h"
-
+/*
 bool Flanger::reset(double _sampleRate, int channel)
 {
-	modDelay.reset(_sampleRate, channel);
+	return modDelay.reset(_sampleRate, channel);
 }
 
 FlangerStruct Flanger::getParameters()
 {
-	modDelay.getParameters();
+	//modDelay.getParameters();
+	return flangerStructure;
 }
 
 void Flanger::setParameters(const FlangerStruct& params) //Parameters change
@@ -45,10 +46,15 @@ void Flanger::setParameters(const FlangerStruct& params) //Parameters change
 
 float Flanger::processAudioSample(float xn, int channel)
 {
-	modDelay.processAudioSample(xn, channel);
+	return modDelay.processAudioSample(xn, channel);
 }
 
 bool Flanger::canProcessAudioFrame()
 {
-	modDelay.canProcessAudioFrame();
+	return modDelay.canProcessAudioFrame();
 }
+
+bool Flanger::processAudioFrame(float* inputFrame, float* outputFrame, uint32_t inputChannels, uint32_t outputChannels, int channel)
+{
+	return modDelay.processAudioFrame(inputFrame,outputFrame,inputChannels,outputChannels,channel);
+}*/

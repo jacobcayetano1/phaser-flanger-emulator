@@ -22,10 +22,10 @@
 #pragma once
 
 #include "fxobjects.h"
-
+/*
 struct FlangerStruct {
 	FlangerStruct() {}
-	/** all FXObjects parameter objects require overloaded= operator so remember to add new entries if you add new variables. */
+	// all FXObjects parameter objects require overloaded= operator so remember to add new entries if you add new variables. 
 	FlangerStruct& operator=(const FlangerStruct& fStruct)	// need this override for collections to work
 	{
 		if (this == &fStruct)
@@ -46,17 +46,25 @@ struct FlangerStruct {
 	float feedback = 75.0f;
 
 	float drywet = 50.0f;
-};
+};*/
 
-class Flanger : public IAudioSignalProcessor
+class Flanger : public ModulatedDelay
 {
 public:
 	Flanger(void)
 	{
+		parameters.algorithm = modDelaylgorithm::kFlanger;
+		parameters.lfoRate_Hz = 1.0f;
+		parameters.lfoDepth_Pct = 100.0f;
+		parameters.feedback_Pct = 75.0f;
 		
+		OscillatorParameters lfoParams = lfo.getParameters();
+		lfoParams.waveform = generatorWaveform::kTriangle; // kTriangle, kSin, kSaw
+		lfoParams.frequency_Hz = parameters.lfoRate_Hz;
+		lfo.setParameters(lfoParams);
 	};
 	~Flanger(void) {};
-
+	/*
 	bool reset(double _sampleRate, int channel);
 
 	FlangerStruct getParameters();
@@ -67,8 +75,10 @@ public:
 
 	bool canProcessAudioFrame();
 
+	bool processAudioFrame(float* inputFrame, float* outputFrame, uint32_t inputChannels, uint32_t outputChannels, int channel);
+	*/
 protected:
-	FlangerStruct flangerStructure;
-	ModulatedDelay modDelay;
+	//FlangerStruct flangerStructure;
+	//ModulatedDelay modDelay;
 private:
 };
