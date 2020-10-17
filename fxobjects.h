@@ -242,7 +242,7 @@ inline float doBipolarModulation(float bipolarModulatorValue, float minValue, fl
 \param value - value to convert
 \return the bipolar value
 */
-inline double unipolarToBipolar(double value)
+inline float unipolarToBipolar(float value)
 {
 	return 2.0*value - 1.0;
 }
@@ -256,7 +256,7 @@ inline double unipolarToBipolar(double value)
 \param value - value to convert
 \return the unipolar value
 */
-inline float bipolarToUnipolar(float value)
+inline float bipolarToUnipolar(float value) // changed to flaot
 {
 	return 0.5*value + 0.5;
 }
@@ -1222,10 +1222,10 @@ struct SignalGenData
 {
 	SignalGenData() {}
 
-	double normalOutput = 0.0;			///< normal
-	double invertedOutput = 0.0;		///< inverted
-	double quadPhaseOutput_pos = 0.0;	///< 90 degrees out
-	double quadPhaseOutput_neg = 0.0;	///< -90 degrees out
+	float normalOutput = 0.0;			///< normal
+	float invertedOutput = 0.0;		///< inverted
+	float quadPhaseOutput_pos = 0.0;	///< 90 degrees out
+	float quadPhaseOutput_neg = 0.0;	///< -90 degrees out
 };
 
 /**
@@ -2795,15 +2795,33 @@ public:
 		//float yn = delayBuffer_L.readBuffer(delayInSamples_L); // changed to float
 		float yn = delayBuffer[channel].readBuffer(delayInSamples[channel]);
 		
+		/*float yn = 0;
+		if (channel == 0)
+		{
+			yn = delayBuffer_L.readBuffer(delayInSamples_L);
+		}
+		else
+		{
+			yn = delayBuffer_R.readBuffer(delayInSamples_R);
+		}*/
+
 		// --- create input for delay buffer
 		float dn = xn + (parameters.feedback_Pct / 100.0) * yn; // changed to float
 
 		// --- write to delay buffer
 		delayBuffer[channel].writeBuffer(dn);
+		/*if (channel == 0)
+		{
+			delayBuffer_L.writeBuffer(dn);
+		}
+		else
+		{
+			delayBuffer_R.writeBuffer(dn);
+		}*/
 
 		// --- form mixture out = dry*xn + wet*yn
 		float output = dryMix * xn + wetMix * yn; // changed to float
-		//output = xn * 0.5; // breaks here
+		//output = output * 0.5; // breaks here
 		return output;
 	}
 
@@ -2811,8 +2829,8 @@ public:
 	virtual bool canProcessAudioFrame() { return true; }
 
 	/** process STEREO audio delay in frames */
-	virtual bool processAudioFrame(float inputFrame, // Removed const float	/* ptr to one frame of data: pInputFrame[0] = left, pInputFrame[1] = right, etc...*/
-		float outputFrame,
+	virtual bool processAudioFrame(const float* inputFrame, // Removed const float	/* ptr to one frame of data: pInputFrame[0] = left, pInputFrame[1] = right, etc...*/
+		float* outputFrame,
 		uint32_t inputChannels,
 		uint32_t outputChannels,
 		int channel)
@@ -2830,8 +2848,8 @@ public:
 		if (outputChannels == 1)
 		{
 			// --- process left channel only
-			outputFrame = processAudioSample(inputFrame, channel);
-			parameters.output_AD = outputFrame;
+			outputFrame[0] = processAudioSample(inputFrame[0], channel);
+			parameters.output_AD = outputFrame[0];
 			return true;
 		}
 
@@ -2840,10 +2858,10 @@ public:
 		// --- pick up inputs
 		//
 		// --- LEFT channel
-		float xnL = inputFrame;
+		float xnL = inputFrame[0];
 
 		// --- RIGHT channel (duplicate left input if mono-in)
-		float xnR = inputChannels > 1 ? inputFrame : xnL;
+		float xnR = inputChannels > 1 ? inputFrame[1] : xnL;
 
 		// --- read delay LEFT
 		float ynL = delayBuffer_L.readBuffer(delayInSamples_L);
@@ -2882,10 +2900,10 @@ public:
 		float outputR = dryMix*xnR + wetMix*ynR;
 
 		// --- set left channel
-		outputFrame = outputL;
+		outputFrame[0] = outputL;
 
 		// --- set right channel
-		outputFrame = outputR;
+		outputFrame[1] = outputR;
 
 		return true;
 	}
@@ -3093,13 +3111,14 @@ protected:
 	// --- sample rate
 	double sampleRate = 0.0;			///< sample rate
 
+	// changed to float
 	// --- timebase variables
-	double modCounter = 0.0;			///< modulo counter [0.0, +1.0]
-	double phaseInc = 0.0;				///< phase inc = fo/fs
-	double modCounterQP = 0.25;			///<Quad Phase modulo counter [0.0, +1.0]
+	float modCounter = 0.0;			///< modulo counter [0.0, +1.0]
+	float phaseInc = 0.0;				///< phase inc = fo/fs
+	float modCounterQP = 0.25;			///<Quad Phase modulo counter [0.0, +1.0]
 
 	/** check the modulo counter and wrap if needed */
-	inline bool checkAndWrapModulo(double& moduloCounter, double phaseInc)
+	inline bool checkAndWrapModulo(float& moduloCounter, double phaseInc)
 	{
 		// --- for positive frequencies
 		if (phaseInc > 0 && moduloCounter >= 1.0)
@@ -3119,7 +3138,7 @@ protected:
 	}
 
 	/** advanvce the modulo counter, then check the modulo counter and wrap if needed */
-	inline bool advanceAndCheckWrapModulo(double& moduloCounter, double phaseInc)
+	inline bool advanceAndCheckWrapModulo(float& moduloCounter, double phaseInc)
 	{
 		// --- advance counter
 		moduloCounter += phaseInc;
@@ -3142,15 +3161,15 @@ protected:
 	}
 
 	/** advanvce the modulo counter */
-	inline void advanceModulo(double& moduloCounter, double phaseInc) { moduloCounter += phaseInc; }
-
-	const double B = 4.0 / kPi;
-	const double C = -4.0 / (kPi* kPi);
-	const double P = 0.225;
+	inline void advanceModulo(float& moduloCounter, double phaseInc) { moduloCounter += phaseInc; }
+	// changed to float
+	const float B = 4.0 / kPi;
+	const float C = -4.0 / (kPi* kPi);
+	const float P = 0.225;
 	/** parabolic sinusoidal calcualtion; NOTE: input is -pi to +pi http://devmaster.net/posts/9648/fast-and-accurate-sine-cosine */
-	inline double parabolicSine(double angle)
+	inline float parabolicSine(float angle) // changed to float
 	{
-		double y = B * angle + C * angle * fabs(angle);
+		float y = B * angle + C * angle * fabs(angle);
 		y = P * (y * fabs(y) - y) + y;
 		return y;
 	}
@@ -3481,8 +3500,8 @@ public:
 	bool canProcessAudioFrame() { return true; }
 
 	/** process STEREO audio delay of frames */
-	bool processAudioFrame(float inputFrame, // Removed const float /* ptr to one frame of data: pInputFrame[0] = left, pInputFrame[1] = right, etc...*/
-		float outputFrame,
+	bool processAudioFrame(const float* inputFrame, // Removed const float /* ptr to one frame of data: pInputFrame[0] = left, pInputFrame[1] = right, etc...*/
+		float* outputFrame,
 		uint32_t inputChannels,
 		uint32_t outputChannels,
 		int channel)

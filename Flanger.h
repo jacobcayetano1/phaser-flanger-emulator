@@ -60,7 +60,7 @@ public:
 		
 		OscillatorParameters lfoParams = lfo.getParameters();
 		lfoParams.waveform = generatorWaveform::kTriangle; // kTriangle, kSin, kSaw
-		lfoParams.frequency_Hz = parameters.lfoRate_Hz;
+		//lfoParams.frequency_Hz = parameters.lfoRate_Hz;
 		lfo.setParameters(lfoParams);
 	};
 	~Flanger(void) {};
