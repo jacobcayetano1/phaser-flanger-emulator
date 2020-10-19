@@ -39,10 +39,15 @@ public:
     void sliderValueChanged(Slider* slider) override;
     
     ScopedPointer <AudioProcessorValueTreeState::SliderAttachment> sliderAttach;
-    ScopedPointer<AudioProcessorValueTreeState::SliderAttachment> paramValue;
+    ScopedPointer<AudioProcessorValueTreeState::SliderAttachment> depthValue;
+    ScopedPointer<AudioProcessorValueTreeState::SliderAttachment> rateValue;
+    ScopedPointer<AudioProcessorValueTreeState::SliderAttachment> drywetValue;
+
 private:
     Slider gainSlider;
-    Slider paramDial;
+    Slider depthDial;
+    Slider rateDial;
+    Slider drywetDial;
     
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.

@@ -21,6 +21,7 @@
 
 #include <JuceHeader.h>
 #include "Phaser.h"
+#include "Flanger.h"
 //#include "APF.h"
 #include <string>
 
@@ -69,25 +70,23 @@ public:
 
     AudioProcessorValueTreeState treeState;
     float Gain;
-    APF apf0; //All pass filter
+    float Depth;
+    float Rate;
+    float DryWet;
+    //APF apf0; //All pass filter
     Phaser phaser;
-    PhaseShifter phaserShifter;
+    Flanger flanger;
     static const int kChannels = 2; // 2 channels
+
 protected:
-    /*void updateParameters()
-    {
-        PhaseShifterParameters params = phaserShifter.getParameters();
-        params.lfoRate_Hz = 1000.0;
-        params.lfoDepth_Pct = 100.0;
-        params.intensity_Pct = 75.0;
-        phaserShifter.setParameters(params);
-    }*/
+    
     void updateParameters()
     {
         PhaserStruct phaserParams = phaser.getParameters();
-        phaserParams.lfoRate = 1.0f;
-        phaserParams.lfoDepth = 100.0f;
-        phaserParams.intensity = 75.0f;
+        // Change to user controlled
+        phaserParams.lfoRate = Rate;
+        phaserParams.lfoDepth = Depth;
+        phaserParams.drywet = DryWet; // Do not allow user to change intensity, messes up sound
 
         phaser.setParameters(phaserParams);
     }
