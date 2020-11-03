@@ -22,7 +22,7 @@
 
 #pragma once
 
-#include "APF.h"
+#include "fxobjects.h"
 
 struct PhaserStruct {
 	PhaserStruct(){}
@@ -47,7 +47,7 @@ struct PhaserStruct {
 	float intensity = 75.0f;
 	bool quadPhaseLFO = false;
 
-	float drywet = 50.0f;
+	float drywet = 100.0f;
 };
 
 class Phaser : public IAudioSignalProcessor
@@ -57,7 +57,6 @@ public:
 	{
 		OscillatorParameters lfoParams = lfo.getParameters();
 		lfoParams.waveform = generatorWaveform::kTriangle; // kTriangle, kSin, kSaw
-		//lfoParams.frequency_Hz = 0.0;
 		lfo.setParameters(lfoParams);
 
 		AudioFilterParameters filterParams = apf[0].getParameters();
@@ -80,7 +79,7 @@ public:
 
 	void setParameters(const PhaserStruct& params); //Parameters change
 
-	float processAudioSample(float xn, int channel);
+	float processAudioSample(float xn, int channel, double _sampleRate);
 
 	bool canProcessAudioFrame();
 

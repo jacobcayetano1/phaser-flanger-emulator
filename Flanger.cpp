@@ -3,9 +3,8 @@
   Project: Guitar Pedal Emulation Plug-in
   Author: Jacob Cayetano
   Framework: JUCE
-  File: Phaser.h
-  Description: Describes phaser circuit, modelled after PhaseShifter object in "Designing Audio Effect Plugins..."
-  but modified to contain only four APFs
+  File: Flanger.cpp
+  Description: Flanger DSP
   Contains Code From:
   --- TheAudioProgrammer
   --- ASPIK Code Library
@@ -21,40 +20,108 @@
 */
 
 #include "Flanger.h"
-/*
-bool Flanger::reset(double _sampleRate, int channel)
+#define _USE_MATH_DEFINES
+#include <math.h>
+
+bool Flanger::reset(double sampleRate, int inputChannels)
 {
-	return modDelay.reset(_sampleRate, channel);
+    float maxDelayTime = 0.02f + 0.02f;
+    delayBufferSamples = (int)(maxDelayTime * (float)sampleRate) + 1;
+    if (delayBufferSamples < 1)
+    {
+        delayBufferSamples = 1;
+    }
+
+    delayBuffer.setSize(inputChannels, delayBufferSamples);
+    delayBuffer.clear();
+
+    delayWritePosition = 0;
+    lfoPhase = 0.0f;
+    inverseSampleRate = 1.0f / (float)sampleRate;
+    twoPi = 2.0f * M_PI;
+
+    return true;
 }
 
-FlangerStruct Flanger::getParameters()
+float Flanger::lfo(float phase, int waveform)
 {
-	//modDelay.getParameters();
-	return flangerStructure;
+    float out = 0.0f;
+
+    switch (waveform) 
+    {
+        case waveformSine: 
+        {
+            out = 0.5f + 0.5f * sinf(twoPi * phase);
+            break;
+        }
+        case waveformTriangle:
+        {
+            if (phase < 0.25f)
+                out = 0.5f + 2.0f * phase;
+            else if (phase < 0.75f)
+                out = 1.0f - 2.0f * (phase - 0.25f);
+            else
+                out = 2.0f * (phase - 0.75f);
+            break;
+        }
+        case waveformSawtooth: 
+        {
+            if (phase < 0.5f)
+                out = 0.5f + phase;
+            else
+                out = phase - 0.5f;
+            break;
+        }
+        case waveformInverseSawtooth: 
+        {
+            if (phase < 0.5f)
+                out = 0.5f - phase;
+            else
+                out = 1.5f - phase;
+            break;
+        }
+    }
+
+    return out;
 }
 
-void Flanger::setParameters(const FlangerStruct& params) //Parameters change
+float Flanger::processAudioSample(float xn, int* localWritePosition, float* phase, double sampleRate)
 {
-	if (params.lfoRate != flangerStructure.lfoRate)
-	{
-		OscillatorParameters lfoParams = modDelay.lfo.getParameters();
-		lfoParams.frequency_Hz = params.lfoRate;
-		modDelay.lfo.setParameters(lfoParams);
-	}
-	flangerStructure = params;
-}
+    const float in = xn;
+    float out = 0.0f;
 
-float Flanger::processAudioSample(float xn, int channel)
-{
-	return modDelay.processAudioSample(xn, channel);
-}
+    float localDelayTime = (0.0025f + 0.001f * lfo(*phase, 1)) * (float)sampleRate;
 
-bool Flanger::canProcessAudioFrame()
-{
-	return modDelay.canProcessAudioFrame();
-}
+    float readPosition = fmodf((float)*localWritePosition - localDelayTime + (float)delayBufferSamples, delayBufferSamples);
+    int localReadPosition = floorf(readPosition);
 
-bool Flanger::processAudioFrame(float* inputFrame, float* outputFrame, uint32_t inputChannels, uint32_t outputChannels, int channel)
-{
-	return modDelay.processAudioFrame(inputFrame,outputFrame,inputChannels,outputChannels,channel);
-}*/
+    // Cubic Interpolation
+    float fraction = readPosition - (float)localReadPosition;
+    float fractionSqrt = fraction * fraction;
+    float fractionCube = fractionSqrt * fraction;
+    
+    float sample0 = delayData[(localReadPosition - 1 + delayBufferSamples) % delayBufferSamples];
+    float sample1 = delayData[(localReadPosition + 0)];
+    float sample2 = delayData[(localReadPosition + 1) % delayBufferSamples];
+    float sample3 = delayData[(localReadPosition + 2) % delayBufferSamples];
+
+    float a0 = -0.5f * sample0 + 1.5f * sample1 - 1.5f * sample2 + 0.5f * sample3;
+    float a1 = sample0 - 2.5f * sample1 + 2.0f * sample2 - 0.5f * sample3;
+    float a2 = -0.5f * sample0 + 0.5f * sample2;
+    float a3 = sample1;
+    out = a0 * fractionCube + a1 * fractionSqrt + a2 * fraction + a3;
+
+    //channelData[sample] = in + out * (*treeState.getRawParameterValue(FLANGER_DEPTH_ID) /100.0f); //currentInverted;
+    float output = in + out * 1.0f * 1.0f;
+    delayData[*localWritePosition] = in + out * 0.5f; //* 0.5f;//currentFeedback;
+
+    if (++*localWritePosition >= delayBufferSamples)
+        *localWritePosition -= delayBufferSamples;
+
+    *phase += 5.0f * inverseSampleRate;
+    if (*phase >= 1.0f)
+    {
+        *phase -= 1.0f;
+    }
+    return output;
+}

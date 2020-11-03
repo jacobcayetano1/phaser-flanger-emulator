@@ -22,7 +22,6 @@
 #include <JuceHeader.h>
 #include "Phaser.h"
 #include "Flanger.h"
-//#include "APF.h"
 #include <string>
 
 //==============================================================================
@@ -68,31 +67,52 @@ public:
     void getStateInformation (MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
+    // Parameters
     AudioProcessorValueTreeState treeState;
     float Gain;
-    float Depth;
-    float Rate;
+    float flangerDepth;
+    float phaserRate;
     float DryWet;
-    //APF apf0; //All pass filter
+    
+    float previousGain;
+
     Phaser phaser;
     Flanger flanger;
     static const int kChannels = 2; // 2 channels
 
+    //float s0, s1, s2, s3;
+    //float* delayData;
+
+    /*
+    AudioSampleBuffer delayBuffer;
+    int delayBufferSamples;
+    int delayBufferChannels;
+    int delayWritePosition;
+
+    float lfoPhase;
+    float inverseSampleRate;
+    float twoPi;
+    */
+
 protected:
     
-    void updateParameters()
+    void updateParameters(int channel)
     {
         PhaserStruct phaserParams = phaser.getParameters();
-        // Change to user controlled
-        phaserParams.lfoRate = Rate;
-        phaserParams.lfoDepth = Depth;
-        phaserParams.drywet = DryWet; // Do not allow user to change intensity, messes up sound
+        //ModulatedDelayParameters flangerParams = flanger.getParameters();
+        // Change to user controlled parameters
+        // --- Phaser
+        phaserParams.lfoRate = phaserRate;
+        //phaserParams.drywet = DryWet; // Do not allow user to change intensity, messes up sound
+        // --- Flanger
+        //flangerParams.lfoDepth_Pct = flangerDepth;
+        //flangerParams.lfoRate_Hz = 10.0f;
+        // Higher depth and rate cause noise and artifacts
 
         phaser.setParameters(phaserParams);
+        //flanger.setParameters(flangerParams,channel);
     }
 private:
-
-    
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PedalEmulatorAudioProcessor)
 };

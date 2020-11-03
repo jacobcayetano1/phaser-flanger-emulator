@@ -49,7 +49,7 @@ void Phaser::setParameters(const PhaserStruct& params) //Parameters change
 	phaserStructure = params;
 }
 
-float Phaser::processAudioSample(float xn, int channel)
+float Phaser::processAudioSample(float xn, int channel, double _sampleRate)
 {
 	// SHOW ALGORITHM
 
@@ -108,10 +108,10 @@ float Phaser::processAudioSample(float xn, int channel)
 	float u = alpha0 * (xn + K * Sn); // + or - ?
 
 	// Cascade of APFs
-	float apf0_out = apf[0].processAudioSample(u, channel);
-	float apf1_out = apf[1].processAudioSample(apf0_out, channel);
-	float apf2_out = apf[2].processAudioSample(apf1_out, channel);
-	float apf3_out = apf[3].processAudioSample(apf2_out, channel);
+	float apf0_out = apf[0].processAudioSample(u, channel, _sampleRate);
+	float apf1_out = apf[1].processAudioSample(apf0_out, channel, _sampleRate);
+	float apf2_out = apf[2].processAudioSample(apf1_out, channel, _sampleRate);
+	float apf3_out = apf[3].processAudioSample(apf2_out, channel, _sampleRate);
 
 	// Sum with -3db coeffs
 	//return 0.707 * xn + 0.707 * apf3_out;

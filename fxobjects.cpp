@@ -68,7 +68,7 @@ available on two of the forms: direct and transposed canonical\n
 \returns the biquad processed output y(n)
 */
 //double Biquad::processAudioSample(double xn)
-float Biquad::processAudioSample(float xn, int channel) // changed to float
+float Biquad::processAudioSample(float xn, int channel, double _sampleRate) // changed to float
 {
 	if (parameters.biquadCalcType == biquadAlgorithm::kDirect)
 	{
@@ -157,9 +157,8 @@ float Biquad::processAudioSample(float xn, int channel) // changed to float
 
 		// --- return value
 		return yn;
-		//return xn * Decibels::decibelsToGain(-20.0);
 	}
-	return xn; // didn't process anything :(
+	return xn; // if input is returned, didn't process anything :(
 }
 
 // --- returns true if coeffs were updated
@@ -963,13 +962,13 @@ Here the biquad object does all of the work and we simply combine the wet and dr
 /*template <typename T> 
 T AudioFilter::processAudioSample(T xn)*/
 //double AudioFilter::processAudioSample(double xn)
-float AudioFilter::processAudioSample(float xn, int channel) // changed to float
+float AudioFilter::processAudioSample(float xn, int channel, double _sampleRate) // changed to float
 {
 	// --- let biquad do the grunt-work
 	//
 	// return (dry) + (processed): x(n)*d0 + y(n)*c0
 	//return xn * Decibels::decibelsToGain(-20.0); //changed
-	return coeffArray[d0] * xn + coeffArray[c0] * biquad.processAudioSample(xn, channel);
+	return coeffArray[d0] * xn + coeffArray[c0] * biquad.processAudioSample(xn, channel, _sampleRate);
 }
 
 /**
