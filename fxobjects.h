@@ -24,7 +24,7 @@
 #include "guiconstants.h"
 #include "filters.h"
 #include <time.h>       /* time */
-//#include "JuceHeader.h"
+#include "JuceHeader.h"
 //#include "PluginProcessor.h"
 
 /** @file fxobjects.h
@@ -117,10 +117,13 @@ returns interpolated value
 inline float doLinearInterpolation(float y1, float y2, float fractional_X)
 {
 	// --- check invalid condition
-	if (fractional_X >= 1.0) return y2;
+	if (fractional_X >= 1.0)
+	{
+		return y2;
+	}
 
 	// --- use weighted sum method of interpolating
-	return fractional_X*y2 + (1.0 - fractional_X)*y1;
+	return fractional_X * y2 + (1.0 - fractional_X) * y1;
 }
 
 /**
@@ -164,10 +167,14 @@ inline double doLagrangeInterpolation(double* x, double* y, int n, double xbar)
 \param minValue - lower bound limit
 \param maxValue - upper bound limit
 */
-inline void boundValue(float& value, float minValue, float maxValue)
+inline void boundValue(float& value, float minValue, float maxValue) // float& value
 {
 	value = fmin(value, maxValue);
 	value = fmax(value, minValue);
+	/*
+	float valueOut = (float)fmin(value, maxValue);
+	float valueOut = (float)fmax(value, minValue);
+	*/
 }
 
 /**
@@ -184,7 +191,7 @@ inline void boundValue(float& value, float minValue, float maxValue)
 inline float doUnipolarModulationFromMin(float unipolarModulatorValue, float minValue, float maxValue)
 {
 	// --- UNIPOLAR bound
-	boundValue(unipolarModulatorValue, 0.0, 1.0);
+	boundValue(unipolarModulatorValue, 0.0f, 1.0f);
 
 	// --- modulate from minimum value upwards
 	return unipolarModulatorValue*(maxValue - minValue) + minValue;
@@ -1172,7 +1179,7 @@ public:
 	virtual bool reset(double _sampleRate, int channel) = 0;
 
 	/** process one sample in and out */
-	virtual float processAudioSample(float xn, int channel) = 0; // changed to float
+	virtual float processAudioSample(float xn, int channel, double _sampleRate) = 0; // changed to float
 	//virtual double processAudioSample(double xn) = 0;
 
 	/** return true if the derived object can process a frame, false otherwise */
@@ -1199,7 +1206,9 @@ public:
 	virtual bool processAudioFrame(float* inputFrame, // Removed const float		/* ptr to one frame of data: pInputFrame[0] = left, pInputFrame[1] = right, etc...*/
 								   float* outputFrame,
 								   uint32_t inputChannels,
-								   uint32_t outputChannels, int channel)
+								   uint32_t outputChannels, 
+								   int channel,
+								   double _sampleRate)
 	{
 		// --- do nothing
 		return false; // NOT handled
@@ -1396,7 +1405,7 @@ public:
 	\return the processed sample
 	*/
 	//virtual double processAudioSample(double xn);
-	virtual float processAudioSample(float xn, int channel); // changed to float
+	virtual float processAudioSample(float xn, int channel, double _sampleRate); // changed to float
 
 	/** get parameters: note use of custom structure for passing param data */
 	/**
@@ -1569,7 +1578,7 @@ public:
 	*/
 	//virtual double processAudioSample(double xn);
 	//template <typename T> T processAudioSample(T xn);
-	virtual float processAudioSample(float xn, int channel); // changed to float
+	virtual float processAudioSample(float xn, int channel, double _sampleRate); // changed to float
 	/** --- sample rate change necessarily requires recalculation */
 	virtual void setSampleRate(double _sampleRate)
 	{
@@ -1627,6 +1636,25 @@ protected:
 	bool calculateFilterCoeffs();
 };
 
+class APF : public AudioFilter //APF specialized for Phaser
+{
+public:
+	APF()
+	{
+		// Initialize APF parameters that were declared in APF.h
+		audioFilterParameters.algorithm = filterAlgorithm::kAPF1;
+		audioFilterParameters.fc = 1000.0; // 20 kHz
+		audioFilterParameters.Q = 20; // Quality factor
+		audioFilterParameters.boostCut_dB = 0.0;
+		coeffArray[c0] = 1.0;
+		coeffArray[d0] = 0.0;
+	};
+	~APF() {};
+
+protected:
+
+private:
+};
 
 /**
 \struct FilterBankOutput
@@ -1740,16 +1768,16 @@ public:
 	}
 
 	/** process the filter bank */
-	FilterBankOutput processFilterBank(double xn, int channel)
+	FilterBankOutput processFilterBank(double xn, int channel, double _sampleRate)
 	{
 		FilterBankOutput output;
 
 		// --- process the LPF
-		output.LFOut = lpFilter.processAudioSample(xn, channel);
+		output.LFOut = lpFilter.processAudioSample(xn, channel, _sampleRate);
 
 		// --- invert the HP filter output so that recombination will
 		//     result in the correct phase and magnitude responses
-		output.HFOut = -hpFilter.processAudioSample(xn, channel);
+		output.HFOut = -hpFilter.processAudioSample(xn, channel, _sampleRate);
 
 		return output;
 	}
@@ -1877,7 +1905,7 @@ public:
 	\param xn input
 	\return the processed sample
 	*/
-	virtual float processAudioSample(float xn, int channel) // changed to float
+	virtual float processAudioSample(float xn, int channel, double _sampleRate) // changed to float
 	//virtual double processAudioSample(double xn)
 	{
 		// --- all modes do Full Wave Rectification
@@ -2133,16 +2161,16 @@ public:
 	\param xn input
 	\return the processed sample
 	*/
-	virtual double processAudioSample(double xn, int channel)
+	virtual double processAudioSample(double xn, int channel, double _sampleRate)
 	{
 		// --- detect input
 		double detect_dB = 0.0;
 
 		// --- if using the sidechain, process the aux input
 		if(parameters.enableSidechain)
-			detect_dB = detector.processAudioSample(sidechainInputSample, channel);
+			detect_dB = detector.processAudioSample(sidechainInputSample, channel, _sampleRate);
 		else
-			detect_dB = detector.processAudioSample(xn, channel);
+			detect_dB = detector.processAudioSample(xn, channel, _sampleRate);
 
 		// --- compute gain
 		double gr = computeGain(detect_dB);
@@ -2387,14 +2415,13 @@ public:
 	{
 		// --- truncate delayInFractionalSamples and read the int part
 		T y1 = readBuffer((int)delayInFractionalSamples);
-
 		// --- if no interpolation, just return value
 		if (!interpolate) return y1;
 
 		// --- else do interpolation
 		//
 		// --- read the sample at n+1 (one sample OLDER)
-		T y2 = readBuffer((int)delayInFractionalSamples + 1);
+		T y2 = readBuffer((int)delayInFractionalSamples - 1); // +
 
 		// --- get fractional part
 		float fraction = delayInFractionalSamples - (int)delayInFractionalSamples;
@@ -2405,7 +2432,8 @@ public:
 
 	/** enable or disable interpolation; usually used for diagnostics or in algorithms that require strict integer samples times */
 	void setInterpolate(bool b) { interpolate = b; }
-
+	
+	
 private:
 	std::unique_ptr<T[]> buffer = nullptr;	///< smart pointer will auto-delete
 	unsigned int writeIndex = 0;		///> write index
@@ -2454,7 +2482,7 @@ public:
 	\param xn input
 	\return the processed sample
 	*/
-	virtual float processAudioSample(float xn, int channel) // changed to float
+	virtual float processAudioSample(float xn, int channel, double _sampleRate) // changed to float
 	//virtual double processAudioSample(double xn)
 	{
 		float output = 0.0; // changed to float
@@ -2601,10 +2629,10 @@ public:
 	\param xn input
 	\return the processed sample
 	*/
-	virtual double processAudioSample(double xn, int channel)
+	virtual double processAudioSample(double xn, int channel, double _sampleRate)
 	{
 		// --- do the linear convolution
-		return convolver.processAudioSample(xn, channel);
+		return convolver.processAudioSample(xn, channel, _sampleRate);
 	}
 
 	/** return false: this object only processes samples */
@@ -2716,8 +2744,8 @@ struct AudioDelayParameters
 		feedback_Pct = params.feedback_Pct;
 
 		updateType = params.updateType;
-		leftDelay_mSec = params.leftDelay_mSec;
-		rightDelay_mSec = params.rightDelay_mSec;
+		//leftDelay_mSec = params.leftDelay_mSec;
+		//rightDelay_mSec = params.rightDelay_mSec;
 		delay_mSec[0] = params.delay_mSec[0];
 		delay_mSec[1] = params.delay_mSec[1];
 		delayRatio_Pct = params.delayRatio_Pct;
@@ -2732,14 +2760,39 @@ struct AudioDelayParameters
 	float feedback_Pct = 50.0;	///< feedback as a % value
 
 	delayUpdateType updateType = delayUpdateType::kLeftAndRight;///< update algorithm
-	float leftDelay_mSec = 0.0;	///< left delay time
-	float rightDelay_mSec = 0.0;	///< right delay time
+	//float leftDelay_mSec = 0.0;	///< left delay time
+	//float rightDelay_mSec = 0.0;	///< right delay time
 	float delay_mSec[2] = { 0.0,0.0 }; //delay time (2 channel)
 	float delayRatio_Pct = 100.0;	///< dela ratio: right length = (delayRatio)*(left length)
 	float output_AD = 0.0;
 };
 
-/**
+
+class CParamSmooth // Smoothing class from alexirae on WillPirkle.com forum
+{
+public:
+	CParamSmooth(float smoothingTimeInMs, float samplingRate)
+	{
+		const float c_twoPi = 6.283185307179586476925286766559f;
+
+		a = exp(-c_twoPi / (smoothingTimeInMs * 0.001f * samplingRate));
+		b = 1.0f - a;
+		z = 0.0f;
+	}
+
+	inline float process(float in)
+	{
+		z = (in * b) + (z * a);
+		return z;
+	}
+
+private:
+	float a;
+	float b;
+	float z;
+};
+
+/*
 \class AudioDelay
 \ingroup FX-Objects
 \brief
@@ -2770,8 +2823,8 @@ public:
 		if (sampleRate == _sampleRate)
 		{
 			// --- just flush buffer and return
-			delayBuffer_L.flushBuffer();
-			delayBuffer_R.flushBuffer();
+			//delayBuffer_L.flushBuffer();
+			//delayBuffer_R.flushBuffer();
 			delayBuffer[0].flushBuffer();
 			delayBuffer[1].flushBuffer();
 			return true;
@@ -2789,39 +2842,23 @@ public:
 	\param xn input
 	\return the processed sample
 	*/
-	virtual float processAudioSample(float xn, int channel) // changed to float
+	virtual float processAudioSample(float xn, int channel, double _sampleRate) // changed to float
 	{
 		// --- read delay
-		//float yn = delayBuffer_L.readBuffer(delayInSamples_L); // changed to float
-		float yn = delayBuffer[channel].readBuffer(delayInSamples[channel]);
-		
-		/*float yn = 0;
-		if (channel == 0)
-		{
-			yn = delayBuffer_L.readBuffer(delayInSamples_L);
-		}
-		else
-		{
-			yn = delayBuffer_R.readBuffer(delayInSamples_R);
-		}*/
+		float yn = delayBuffer[channel].readBuffer((float)delayInSamples[channel]);
+		//float yn = xn;
+		//CParamSmooth smooth(0.5f, _sampleRate);
+		//yn = smooth.process(yn);
 
 		// --- create input for delay buffer
 		float dn = xn + (parameters.feedback_Pct / 100.0) * yn; // changed to float
 
 		// --- write to delay buffer
 		delayBuffer[channel].writeBuffer(dn);
-		/*if (channel == 0)
-		{
-			delayBuffer_L.writeBuffer(dn);
-		}
-		else
-		{
-			delayBuffer_R.writeBuffer(dn);
-		}*/
-
 		// --- form mixture out = dry*xn + wet*yn
-		float output = dryMix * xn + wetMix * yn; // changed to float
-		//output = output * 0.5; // breaks here
+		//float output = dryMix * xn + wetMix * smooth.process(yn); // changed to float
+		float output = dryMix * xn + wetMix * yn;
+
 		return output;
 	}
 
@@ -2833,7 +2870,8 @@ public:
 		float* outputFrame,
 		uint32_t inputChannels,
 		uint32_t outputChannels,
-		int channel)
+		int channel,
+		double _sampleRate)
 	{
 		// --- make sure we have input and outputs
 		if (inputChannels == 0 || outputChannels == 0)
@@ -2848,7 +2886,7 @@ public:
 		if (outputChannels == 1)
 		{
 			// --- process left channel only
-			outputFrame[0] = processAudioSample(inputFrame[0], channel);
+			outputFrame[0] = processAudioSample(inputFrame[0], channel, _sampleRate);
 			parameters.output_AD = outputFrame[0];
 			return true;
 		}
@@ -2864,46 +2902,48 @@ public:
 		float xnR = inputChannels > 1 ? inputFrame[1] : xnL;
 
 		// --- read delay LEFT
-		float ynL = delayBuffer_L.readBuffer(delayInSamples_L);
+		//float ynL = delayBuffer_L.readBuffer(delayInSamples_L);
+		float ynL = delayBuffer[channel].readBuffer(delayInSamples[channel]);
 
 		// --- read delay RIGHT
-		float ynR = delayBuffer_R.readBuffer(delayInSamples_R);
+		//float ynR = delayBuffer_R.readBuffer(delayInSamples_R);
 
 		// --- create input for delay buffer with LEFT channel info
 		float dnL = xnL + (parameters.feedback_Pct / 100.0) * ynL;
 
 		// --- create input for delay buffer with RIGHT channel info
-		float dnR = xnR + (parameters.feedback_Pct / 100.0) * ynR;
+		//float dnR = xnR + (parameters.feedback_Pct / 100.0) * ynR;
 
 		// --- decode
 		if (parameters.algorithm == delayAlgorithm::kNormal)
 		{
 			// --- write to LEFT delay buffer with LEFT channel info
-			delayBuffer_L.writeBuffer(dnL);
+			//delayBuffer_L.writeBuffer(dnL);
+			delayBuffer[channel].writeBuffer(dnL);
 
 			// --- write to RIGHT delay buffer with RIGHT channel info
-			delayBuffer_R.writeBuffer(dnR);
+			//delayBuffer_R.writeBuffer(dnR);
 		}
 		else if (parameters.algorithm == delayAlgorithm::kPingPong)
 		{
 			// --- write to LEFT delay buffer with RIGHT channel info
-			delayBuffer_L.writeBuffer(dnR);
+			delayBuffer[channel].writeBuffer(dnL);
 
 			// --- write to RIGHT delay buffer with LEFT channel info
-			delayBuffer_R.writeBuffer(dnL);
+			//delayBuffer_R.writeBuffer(dnL);
 		}
 
 		// --- form mixture out = dry*xn + wet*yn
 		float outputL = dryMix*xnL + wetMix*ynL;
 
 		// --- form mixture out = dry*xn + wet*yn
-		float outputR = dryMix*xnR + wetMix*ynR;
+		//float outputR = dryMix*xnR + wetMix*ynR;
 
 		// --- set left channel
 		outputFrame[0] = outputL;
 
 		// --- set right channel
-		outputFrame[1] = outputR;
+		//outputFrame[1] = outputR;
 
 		return true;
 	}
@@ -2918,7 +2958,7 @@ public:
 	/**
 	\param AudioDelayParameters custom data structure
 	*/
-	void setParameters(AudioDelayParameters _parameters)
+	void setParameters(AudioDelayParameters _parameters, int channel)
 	{
 		// --- check mix in dB for calc
 		if (_parameters.dryLevel_dB != parameters.dryLevel_dB)
@@ -2936,14 +2976,15 @@ public:
 			// --- calculate total delay time in samples + fraction
 			//double newDelayInSamples_L = parameters.leftDelay_mSec*(samplesPerMSec);
 			//double newDelayInSamples_R = parameters.rightDelay_mSec*(samplesPerMSec);
-			float newDelayInSamples_L = parameters.delay_mSec[0]*(samplesPerMSec);
-			float newDelayInSamples_R = parameters.delay_mSec[1]*(samplesPerMSec);
+			//float newDelayInSamples_L = parameters.delay_mSec[channel]*(samplesPerMSec);
+			delayInSamples[channel] = parameters.delay_mSec[channel] * (samplesPerMSec);
+			//float newDelayInSamples_R = parameters.delay_mSec[1]*(samplesPerMSec);
 
 			// --- new delay time with fraction
-			delayInSamples_L = newDelayInSamples_L;
-			delayInSamples_R = newDelayInSamples_R;
-			delayInSamples[0] = newDelayInSamples_L;
-			delayInSamples[1] = newDelayInSamples_R;
+			//delayInSamples_L = newDelayInSamples_L;
+			//delayInSamples_R = newDelayInSamples_R;
+			//delayInSamples[channel] = newDelayInSamples_L;
+			//delayInSamples[1] = newDelayInSamples_R;
 		}
 		else if (parameters.updateType == delayUpdateType::kLeftPlusRatio)
 		{
@@ -2952,13 +2993,13 @@ public:
 			boundValue(delayRatio, 0.0, 1.0);
 
 			// --- calculate total delay time in samples + fraction
-			float newDelayInSamples = parameters.leftDelay_mSec*(samplesPerMSec);
-
+			//float newDelayInSamples = parameters.delay_mSec[channel]*(samplesPerMSec);
+			delayInSamples[channel] = parameters.delay_mSec[channel] * (samplesPerMSec);
 			// --- new delay time with fraction
-			delayInSamples_L = newDelayInSamples;
-			delayInSamples_R = delayInSamples_L*delayRatio;
-			delayInSamples[0] = newDelayInSamples;
-			delayInSamples[1] = delayInSamples[0] * delayRatio;
+			//delayInSamples_L = newDelayInSamples;
+			//delayInSamples_R = delayInSamples_L*delayRatio;
+			//delayInSamples[channel] = newDelayInSamples;
+			//delayInSamples[1] = delayInSamples[0] * delayRatio;
 		}
 	}
 
@@ -2968,25 +3009,27 @@ public:
 		// --- store for math
 		bufferLength_mSec = _bufferLength_mSec;
 		sampleRate = _sampleRate;
-		samplesPerMSec = sampleRate / 1000.0;
+		samplesPerMSec = sampleRate / 1000.0f;
 
 		// --- total buffer length including fractional part
 		bufferLength = (unsigned int)(bufferLength_mSec*(samplesPerMSec)) + 1; // +1 for fractional part
 
 																			   // --- create new buffer
-		delayBuffer_L.createCircularBuffer(bufferLength);
-		delayBuffer_R.createCircularBuffer(bufferLength);
+		//delayBuffer_L.createCircularBuffer(bufferLength);
+		//delayBuffer_R.createCircularBuffer(bufferLength);
 		delayBuffer[0].createCircularBuffer(bufferLength);
 		delayBuffer[1].createCircularBuffer(bufferLength);
 	}
-
+protected:
+	//APF interpAPF[2];
+	//CParamSmooth smooth(float 0.5f, float 44100f);
 private:
 	AudioDelayParameters parameters; ///< object parameters
 
 	float sampleRate = 0.0;		///< current sample rate
 	float samplesPerMSec = 0.0;	///< samples per millisecond, for easy access calculation
-	float delayInSamples_L = 0.0;	///< double includes fractional part
-	float delayInSamples_R = 0.0;	///< double includes fractional part
+	//float delayInSamples_L = 0.0;	///< double includes fractional part
+	//float delayInSamples_R = 0.0;	///< double includes fractional part
 	float delayInSamples[2] = { 0.0,0.0 }; // delay samples (2 channels)
 	float bufferLength_mSec = 0.0;	///< buffer length in mSec
 	unsigned int bufferLength = 0;	///< buffer length in samples
@@ -2994,8 +3037,8 @@ private:
 	float dryMix = 0.707; ///< dry output default = -3dB
 
 	// --- delay buffer of doubles
-	CircularBuffer<float> delayBuffer_L;	///< LEFT delay buffer of doubles
-	CircularBuffer<float> delayBuffer_R;	///< RIGHT delay buffer of doubles
+	//CircularBuffer<float> delayBuffer_L;	///< LEFT delay buffer of doubles
+	//CircularBuffer<float> delayBuffer_R;	///< RIGHT delay buffer of doubles
 	CircularBuffer<float> delayBuffer[2]; // array buffer (2 channels)
 };
 
@@ -3372,10 +3415,9 @@ struct ModulatedDelayParameters
 
 	// --- individual parameters
 	modDelaylgorithm algorithm = modDelaylgorithm::kFlanger; ///< mod delay algorithm
-	float lfoRate_Hz = 0.0;	///< mod delay LFO rate in Hz
-	float lfoDepth_Pct = 0.0;	///< mod delay LFO depth in %
-	float feedback_Pct = 0.0;	///< feedback in %
-	float output = 0.0;
+	float lfoRate_Hz = 0.0f;	///< mod delay LFO rate in Hz
+	float lfoDepth_Pct = 0.0f;	///< mod delay LFO depth in %
+	float feedback_Pct = 0.0f;	///< feedback in %
 };
 
 /**
@@ -3405,7 +3447,7 @@ public:
 public:
 	/** reset members to initialized state */
 	// Changed all functions to non-virtual
-	bool reset(double _sampleRate, int channel)
+	virtual bool reset(double _sampleRate, int channel)
 	{
 		// --- create new buffer, 100mSec long
 		delay.reset(_sampleRate, channel);
@@ -3425,12 +3467,8 @@ public:
 	\param xn input
 	\return the processed sample
 	*/
-	float processAudioSample(float xn, int channel)
+	virtual float processAudioSample(float xn, int channel, double _sampleRate)
 	{
-		//float input = xn;
-		//float output = 0.0;
-		//processAudioFrame(input, output, 1, 1, channel);
-		//return xn * 0.5; //works up to here
 		// --- render LFO
 		SignalGenData lfoOutput = lfo.renderAudioOutput();
 
@@ -3468,43 +3506,45 @@ public:
 		float depth = parameters.lfoDepth_Pct / 100.0;
 		float modulationMin = minDelay_mSec;
 		float modulationMax = minDelay_mSec + maxDepth_mSec;
+		float modVal = depth * lfoOutput.normalOutput;
+		//CParamSmooth smooth(5.0f, _sampleRate); // method affects sound
+		//currentVal = smooth.process(modVal);
 
-		// --- flanger - unipolar
+		// --- flanger - unipolar // PROBLEM IS HERE
 		if (parameters.algorithm == modDelaylgorithm::kFlanger)
-			params.delay_mSec[channel] = doUnipolarModulationFromMin(bipolarToUnipolar(depth * lfoOutput.normalOutput),
-				modulationMin, modulationMax);
-		else
-			params.delay_mSec[channel] = doBipolarModulation(depth * lfoOutput.normalOutput, modulationMin, modulationMax);
-
-
-		// --- set right delay to match (*Hint Homework!)
-		/*
-		if (channel == 0)
 		{
-			params.delay_mSec[1] = params.delay_mSec[0];
+			if (channel == 0)
+			{
+				params.delay_mSec[0] = doUnipolarModulationFromMin(bipolarToUnipolar(modVal), modulationMin, modulationMax);
+				params.delay_mSec[1] = params.delay_mSec[0];
+			}
 		}
 		else
 		{
-			params.delay_mSec[0] = params.delay_mSec[1];
-		}*/
+			if (channel == 0)
+			{
+				params.delay_mSec[0] = doBipolarModulation(modVal, modulationMin, modulationMax);
+				params.delay_mSec[1] = params.delay_mSec[0];
+			}
+		}
 
 		// --- modulate the delay
-		delay.setParameters(params);
+		delay.setParameters(params, channel);
 
 		// --- just call the function and pass our info in/out
-		return delay.processAudioSample(xn, channel);
-		//return xn * 0.5; // works up to here
+		return delay.processAudioSample(xn, channel, _sampleRate);
 	}
 
 	/** return true: this object can process frames */
-	bool canProcessAudioFrame() { return true; }
+	virtual bool canProcessAudioFrame() { return true; }
 
 	/** process STEREO audio delay of frames */
-	bool processAudioFrame(const float* inputFrame, // Removed const float /* ptr to one frame of data: pInputFrame[0] = left, pInputFrame[1] = right, etc...*/
+	virtual bool processAudioFrame(const float* inputFrame, // Removed const float /* ptr to one frame of data: pInputFrame[0] = left, pInputFrame[1] = right, etc...*/
 		float* outputFrame,
 		uint32_t inputChannels,
 		uint32_t outputChannels,
-		int channel)
+		int channel,
+		double _sampleRate)
 	{
 		// --- make sure we have input and outputs
 		if (inputChannels == 0 || outputChannels == 0)
@@ -3562,11 +3602,10 @@ public:
 		//params.rightDelay_mSec = params.leftDelay_mSec;
 
 		// --- modulate the delay
-		delay.setParameters(params);
+		delay.setParameters(params, channel);
 
 		// --- just call the function and pass our info in/out
-		delay.processAudioFrame(inputFrame, outputFrame, inputChannels, outputChannels, channel);
-		parameters.output = delay.getParameters().output_AD;
+		delay.processAudioFrame(inputFrame, outputFrame, inputChannels, outputChannels, channel, _sampleRate);
 		return true;
 		//outputFrame = inputFrame * 0.5; //breaks here
 		//return outputFrame;
@@ -3582,7 +3621,7 @@ public:
 	/**
 	\param ModulatedDelayParameters custom data structure
 	*/
-	void setParameters(ModulatedDelayParameters _parameters)
+	void setParameters(ModulatedDelayParameters _parameters, int channel)
 	{
 		// --- bulk copy
 		parameters = _parameters;
@@ -3590,24 +3629,34 @@ public:
 		OscillatorParameters lfoParams = lfo.getParameters();
 		lfoParams.frequency_Hz = parameters.lfoRate_Hz;
 		if (parameters.algorithm == modDelaylgorithm::kVibrato)
+		{
 			lfoParams.waveform = generatorWaveform::kSin;
+		}
 		else
+		{
 			lfoParams.waveform = generatorWaveform::kTriangle;
+		}
 
 		lfo.setParameters(lfoParams);
 
 		AudioDelayParameters adParams = delay.getParameters();
 		adParams.feedback_Pct = parameters.feedback_Pct;
-		parameters.output = delay.getParameters().output_AD;
-		delay.setParameters(adParams);
+		delay.setParameters(adParams,channel);
 	}
 
-	LFO lfo;			///< the modulator
+	//LFO lfo;			///< the modulator
 protected:
 	ModulatedDelayParameters parameters; ///< object parameters
-private:
 	AudioDelay delay;	///< the delay to modulate
+	LFO lfo;			///< the modulator
+	//APF interpAPFtryModDel[2];
+private:
+	//AudioDelay delay;	///< the delay to modulate
 	//LFO lfo;			///< the modulator
+	float currentVal = 0.0f;
+	float previousVal = 0.0f;
+	const float interpFactor = 0.5f;
+	//juce::SmoothedValue<float> smoother;
 };
 
 /**
@@ -3768,7 +3817,7 @@ public:
 	\param xn input
 	\return the processed sample
 	*/
-	float processAudioSample(float xn, int channel)
+	float processAudioSample(float xn, int channel, double _sampleRate)
 	{
 		SignalGenData lfoData = lfo.renderAudioOutput();
 
@@ -3825,12 +3874,12 @@ public:
 		float u = alpha0*(xn + K*Sn);
 
 		// --- cascade of APFs (could also nest these in one massive line of code)
-		float APF1 = apf[0].processAudioSample(u, channel);
-		float APF2 = apf[1].processAudioSample(APF1, channel);
-		float APF3 = apf[2].processAudioSample(APF2, channel);
-		float APF4 = apf[3].processAudioSample(APF3, channel);
-		float APF5 = apf[4].processAudioSample(APF4, channel);
-		float APF6 = apf[5].processAudioSample(APF5, channel);
+		float APF1 = apf[0].processAudioSample(u, channel, _sampleRate);
+		float APF2 = apf[1].processAudioSample(APF1, channel, _sampleRate);
+		float APF3 = apf[2].processAudioSample(APF2, channel, _sampleRate);
+		float APF4 = apf[3].processAudioSample(APF3, channel, _sampleRate);
+		float APF5 = apf[4].processAudioSample(APF4, channel, _sampleRate);
+		float APF6 = apf[5].processAudioSample(APF5, channel, _sampleRate);
 
 		// --- sum with -3dB coefficients
 		//	float output = 0.707*xn + 0.707*APF6;
@@ -3988,7 +4037,7 @@ public:
 	\param xn input
 	\return the processed sample
 	*/
-	float processAudioSample(float xn, int channel) // changed to float
+	float processAudioSample(float xn, int channel, double _sampleRate) // changed to float
 	//virtual double processAudioSample(double xn)
 	{
 		double g = simpleLPFParameters.g;
@@ -4105,7 +4154,7 @@ public:
 	\param xn input
 	\return the processed sample
 	*/
-	virtual float processAudioSample(float xn, int channel) // changed to float
+	virtual float processAudioSample(float xn, int channel, double _sampleRate) // changed to float
 	//virtual double processAudioSample(double xn)
 	{
 		// --- read delay
@@ -4435,7 +4484,7 @@ public:
 	\param xn input
 	\return the processed sample
 	*/
-	virtual float processAudioSample(float xn, int channel) // changed to float
+	virtual float processAudioSample(float xn, int channel, double _sampleRate) // changed to float
 	//virtual double processAudioSample(double xn)
 	{
 		SimpleDelayParameters delayParams = delay.getParameters();
@@ -4636,7 +4685,7 @@ public:
 	\param xn input
 	\return the processed sample
 	*/
-	virtual double processAudioSample(double xn, int channel)
+	virtual double processAudioSample(double xn, int channel, double _sampleRate)
 	{
 		// --- delay line output
 		double wnD = 0.0;
@@ -4682,7 +4731,7 @@ public:
 
 		// --- process wn through inner APF
 		//double ynInner = nestedAPF.processAudioSample(wn);
-		float ynInner = nestedAPF.processAudioSample(wn, channel); // changed to float
+		float ynInner = nestedAPF.processAudioSample(wn, channel, _sampleRate); // changed to float
 
 		// --- form y(n) = -gw(n) + w(n-D)
 		//double yn = -apf_g * wn + wnD;
@@ -4830,12 +4879,12 @@ public:
 	\param xn input
 	\return the processed sample
 	*/
-	virtual float processAudioSample(float xn, int channel) // changed to float
+	virtual float processAudioSample(float xn, int channel, double _sampleRate) // changed to float
 	//virtual double processAudioSample(double xn)
 	{
 		// --- all modes do Full Wave Rectification
-		double filteredSignal = lowShelfFilter.processAudioSample(xn, channel);
-		filteredSignal = highShelfFilter.processAudioSample(filteredSignal, channel);
+		double filteredSignal = lowShelfFilter.processAudioSample(xn, channel, _sampleRate);
+		filteredSignal = highShelfFilter.processAudioSample(filteredSignal, channel, _sampleRate);
 
 		return filteredSignal;
 	}
@@ -5018,11 +5067,11 @@ public:
 	\param xn input
 	\return the processed sample
 	*/
-	virtual double processAudioSample(double xn, int channel)
+	virtual float processAudioSample(float xn, int channel, double _sampleRate)
 	{
 		float inputs[2] = { 0.0, 0.0 };
 		float outputs[2] = { 0.0, 0.0 };
-		processAudioFrame(inputs, outputs, 1, 1, channel);
+		processAudioFrame(inputs, outputs, 1, 1, channel, _sampleRate);
 		return outputs[0];
 	}
 
@@ -5031,7 +5080,8 @@ public:
 		float* outputFrame,
 		uint32_t inputChannels,
 		uint32_t outputChannels,
-		int channel)
+		int channel,
+		double _sampleRate)
 	{
 		// --- global feedback from delay in last branch
 		double globFB = branchDelays[NUM_BRANCHES-1].readDelay();
@@ -5045,15 +5095,15 @@ public:
 		double monoXn = double(1.0 / inputChannels)*xnL + double(1.0 / inputChannels)*xnR;
 
 		// --- pre delay output
-		double preDelayOut = preDelay.processAudioSample(monoXn, channel);
+		double preDelayOut = preDelay.processAudioSample(monoXn, channel, _sampleRate);
 
 		// --- input to first branch = preDalay + globFB
 		double input = preDelayOut + fb;
 		for (int i = 0; i < NUM_BRANCHES; i++)
 		{
-			double apfOut = branchNestedAPFs[i].processAudioSample(input, channel);
-			double lpfOut = branchLPFs[i].processAudioSample(apfOut, channel);
-			double delayOut = parameters.kRT*branchDelays[i].processAudioSample(lpfOut, channel);
+			double apfOut = branchNestedAPFs[i].processAudioSample(input, channel, _sampleRate);
+			double lpfOut = branchLPFs[i].processAudioSample(apfOut, channel, _sampleRate);
+			double delayOut = parameters.kRT*branchDelays[i].processAudioSample(lpfOut, channel, _sampleRate);
 			input = delayOut + preDelayOut;
 		}
 		// --- gather outputs
@@ -5094,8 +5144,8 @@ public:
 		}
 
 		// ---  filter
-		double tankOutL = shelvingFilters[0].processAudioSample(outL, channel);
-		double tankOutR = shelvingFilters[1].processAudioSample(outR, channel);
+		double tankOutL = shelvingFilters[0].processAudioSample(outL, channel, _sampleRate);
+		double tankOutR = shelvingFilters[1].processAudioSample(outR, channel, _sampleRate);
 
 		// --- sum with dry
 		double dry = pow(10.0, parameters.dryLevel_dB / 20.0);
@@ -5258,9 +5308,9 @@ public:
 	\param xn input
 	\return the processed sample
 	*/
-	virtual double processAudioSample(double xn, int channel)
+	virtual double processAudioSample(double xn, int channel, double _sampleRate)
 	{
-		return dB2Raw(makeUpGain_dB)*xn*computeGain(detector.processAudioSample(xn, channel));
+		return dB2Raw(makeUpGain_dB)*xn*computeGain(detector.processAudioSample(xn, channel, _sampleRate));
 	}
 
 	/** compute the gain reductino value based on detected value in dB */
@@ -5441,7 +5491,7 @@ public:
 	\param xn input
 	\return the processed sample
 	*/
-	virtual float processAudioSample(float xn, int channel) // changed to float
+	virtual float processAudioSample(float xn, int channel, double _sampleRate) // changed to float
 	//virtual double processAudioSample(double xn)
 	{
 		// --- with gain comp enabled, we reduce the input by
@@ -5733,13 +5783,13 @@ public:
 	\param xn input
 	\return the processed sample
 	*/
-	virtual double processAudioSample(double xn, int channel)
+	virtual double processAudioSample(double xn, int channel, double _sampleRate)
 	{
 		// --- calc threshold
 		double threshValue = pow(10.0, parameters.threshold_dB / 20.0);
 
 		// --- detect the signal
-		double detect_dB = detector.processAudioSample(xn, channel);
+		double detect_dB = detector.processAudioSample(xn, channel, _sampleRate);
 		double detectValue = pow(10.0, detect_dB / 20.0);
 		double deltaValue = detectValue - threshValue;
 
@@ -5763,7 +5813,7 @@ public:
 		filter.setParameters(filterParams);
 
 		// --- perform the filtering operation
-		return filter.processAudioSample(xn, channel);
+		return filter.processAudioSample(xn, channel, _sampleRate);
 	}
 
 protected:
@@ -5918,7 +5968,7 @@ public:
 	\param xn input
 	\return the processed sample
 	*/
-	virtual float processAudioSample(float xn, int channel) // changed to float
+	virtual float processAudioSample(float xn, int channel, double _sampleRate) // changed to float
 	//virtual double processAudioSample(double xn)
 	{
 		// --- perform waveshaping
@@ -5937,11 +5987,11 @@ public:
 
 		// --- Output (plate) capacitor = HPF, remove DC offset
 		if (parameters.enableHPF)
-			output = outputHPF.processAudioSample(output, channel);
+			output = outputHPF.processAudioSample(output, channel, _sampleRate);
 
 		// --- if cathode resistor bypass, will create low shelf
 		if (parameters.enableLSF)
-			output = outputLSF.processAudioSample(output, channel);
+			output = outputLSF.processAudioSample(output, channel, _sampleRate);
 
 		// --- final resistor divider/potentiometer
 		output *= parameters.outputGain;
@@ -6098,15 +6148,15 @@ public:
 	\param xn input
 	\return the processed sample
 	*/
-	virtual double processAudioSample(double xn, int channel)
+	virtual double processAudioSample(double xn, int channel, double _sampleRate)
 	{
-		double output1 = triodes[0].processAudioSample(xn*inputLevel, channel);
-		double output2 = triodes[1].processAudioSample(output1, channel);
-		double output3 = triodes[2].processAudioSample(output2, channel);
+		double output1 = triodes[0].processAudioSample(xn*inputLevel, channel, _sampleRate);
+		double output2 = triodes[1].processAudioSample(output1, channel, _sampleRate);
+		double output3 = triodes[2].processAudioSample(output2, channel, _sampleRate);
 
 		// --- filter stage is between 3 and 4
-		double outputEQ = shelvingFilter.processAudioSample(output3, channel);
-		double output4 = triodes[3].processAudioSample(outputEQ, channel);
+		double outputEQ = shelvingFilter.processAudioSample(output3, channel, _sampleRate);
+		double output4 = triodes[3].processAudioSample(outputEQ, channel, _sampleRate);
 
 		return output4*outputLevel;
 	}

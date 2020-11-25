@@ -16,18 +16,19 @@
   --- Getting Started with JUCE by Martin Robinson
   ==============================================================================
 */
-
+//#define _USE_MATH_DEFINES
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
-#include "APF.h"
+#include "Flanger.h"
+//#include <cmath>
 
 // Defines
 #define GAIN_ID "gain"
 #define GAIN_NAME "Gain"
-#define DEPTH_ID "depth"
-#define DEPTH_NAME "Depth"
-#define RATE_ID "rate"
-#define RATE_NAME "Rate"
+#define PHASER_RATE_ID "phaser_rate"
+#define PHASER_RATE_NAME "phaserRate"
+#define FLANGER_DEPTH_ID "flanger_depth"
+#define FLANGER_DEPTH_NAME "flangerDepth"
 #define DRYWET_ID "drywet"
 #define DRYWET_NAME "DryWet"
 
@@ -49,16 +50,16 @@ PedalEmulatorAudioProcessor::PedalEmulatorAudioProcessor()
     // treeState.createAndAddParameter(const String &parameterID, const String &parameterName, const String &parameterLabel={}, Category parameterCategory=AudioProcessorParameter::genericParameter)
     // Parameter name = parameter label
     NormalisableRange<float> gainRange(-60.0f, 0.0f); // Range creation for gain
-    treeState.createAndAddParameter(GAIN_ID, GAIN_NAME, GAIN_NAME, gainRange, -20.0f, nullptr, nullptr); // Gain parameter creation
+    treeState.createAndAddParameter(GAIN_ID, GAIN_NAME, GAIN_NAME, gainRange, 0.0f, nullptr, nullptr); // Gain parameter creation
 
-    NormalisableRange<float> depthRange(0.0f, 100.0f); // Range creation for depth
-    treeState.createAndAddParameter(DEPTH_ID, DEPTH_NAME, DEPTH_NAME, depthRange, 100.0f, nullptr, nullptr); // Depth parameter creation
+    NormalisableRange<float> phaserRateRange(0.2f, 10.0f); // Range creation for rate
+    treeState.createAndAddParameter(PHASER_RATE_ID, PHASER_RATE_NAME, PHASER_RATE_NAME, phaserRateRange, 1.0f, nullptr, nullptr); // Rate parameter creation
     
-    NormalisableRange<float> rateRange(0.2f, 10.0f); // Range creation for rate
-    treeState.createAndAddParameter(RATE_ID, RATE_NAME, RATE_NAME, rateRange, 0.5f, nullptr, nullptr); // Rate parameter creation
-
+    NormalisableRange<float> flangerDepthRange(0.0f, 100.0f); // Range creation for depth
+    treeState.createAndAddParameter(FLANGER_DEPTH_ID, FLANGER_DEPTH_NAME, FLANGER_DEPTH_NAME, flangerDepthRange, 100.0f, nullptr, nullptr); // Depth parameter creation
+    
     NormalisableRange<float> drywetRange(0.0f, 100.0f); // Range creation for intensity
-    treeState.createAndAddParameter(DRYWET_ID, DRYWET_NAME, DRYWET_NAME, drywetRange, 50.0f, nullptr, nullptr); // Intensity parameter creation
+    treeState.createAndAddParameter(DRYWET_ID, DRYWET_NAME, DRYWET_NAME, drywetRange, 100.0f, nullptr, nullptr); // Intensity parameter creation
     
     treeState.state = ValueTree("savedParams"); // Used for saving parameters
 }
@@ -134,21 +135,28 @@ void PedalEmulatorAudioProcessor::prepareToPlay (double sampleRate, int samplesP
 {
     // Use this method as the place to do any pre-playback
     // initialisation that you need..
-    /*
-    apf0.reset(sampleRate,0); // Reset channel 0
-    apf0.reset(sampleRate,1); // Reset channel 1
-    for (int i = 0; i < kChannels; i++)
-    {
-        apf0.biquad.stateArray[i][0] == 0.0f;
-        apf0.biquad.stateArray[i][1] == 0.0f;
-        apf0.biquad.stateArray[i][2] == 0.0f;
-        apf0.biquad.stateArray[i][3] == 0.0f;
-    }
-    */
     phaser.reset(sampleRate, 0);
     phaser.reset(sampleRate, 1);
-    flanger.reset(sampleRate, 0);
-    flanger.reset(sampleRate, 1);
+    flanger.reset(sampleRate, getTotalNumInputChannels());
+    //flanger.reset(sampleRate, 1);
+    previousGain = Decibels::decibelsToGain(*treeState.getRawParameterValue(GAIN_ID)/20);
+    /*
+    float maxDelayTime = 0.02f + 0.02f;
+    delayBufferSamples = (int)(maxDelayTime * (float)sampleRate) + 1;
+    if (delayBufferSamples < 1)
+    {
+        delayBufferSamples = 1;
+    }
+
+    delayBufferChannels = getTotalNumInputChannels();
+    delayBuffer.setSize(delayBufferChannels, delayBufferSamples);
+    delayBuffer.clear();
+
+    delayWritePosition = 0;
+    lfoPhase = 0.0f;
+    inverseSampleRate = 1.0f / (float)sampleRate;
+    twoPi = 2.0f * M_PI;
+    */
 }
 
 void PedalEmulatorAudioProcessor::releaseResources()
@@ -184,48 +192,146 @@ bool PedalEmulatorAudioProcessor::isBusesLayoutSupported (const BusesLayout& lay
 void PedalEmulatorAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer& midiMessages)
 {
     ScopedNoDenormals noDenormals;
-    auto totalNumInputChannels  = getTotalNumInputChannels();
-    auto totalNumOutputChannels = getTotalNumOutputChannels();
+    const int totalNumInputChannels  = getTotalNumInputChannels();
+    const int totalNumOutputChannels = getTotalNumOutputChannels();
+    const int numSamples = buffer.getNumSamples();
+    float currentGain = pow(10, *treeState.getRawParameterValue(GAIN_ID) / 20);
 
-    // In case we have more outputs than inputs, this code clears any output
-    // channels that didn't contain input data, (because these aren't
-    // guaranteed to be empty - they may contain garbage).
-    // This is here to avoid people getting screaming feedback
-    // when they first compile a plugin, but obviously you don't need to keep
-    // this code if your algorithm always overwrites all the output channels.
-    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear (i, 0, buffer.getNumSamples());
+    // Gain processing done across buffer outside of loop
+    if (currentGain == previousGain)
+    {
+        buffer.applyGain(currentGain);
+    }
+    else {
+        buffer.applyGainRamp(0, numSamples, previousGain, currentGain);
+        previousGain = currentGain;
+    }
 
     // Make sure to reset the state if your inner loop is processing
     // the samples and the outer loop is handling the channels.
     // Alternatively, you can process the samples with the channels
     // interleaved by keeping the same state.
-    int lastChannel = 0;
-    int currentChannel = 0;
+    //int lastChannel = 0;
+    //int currentChannel = 0;
+
+    int locWritePosition;
+    float phaseVal;
+    float phaseMain;
 
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
-        const float* inputData = buffer.getReadPointer(channel);
+        //const float* inputData = buffer.getReadPointer(channel);
         float* channelData = buffer.getWritePointer(channel);
-        //auto* channelOutput = channelData;
-
-        for (int sample = 0; sample < buffer.getNumSamples(); ++sample) // Goes through all samples in buffer
+        flanger.delayData = flanger.delayBuffer.getWritePointer(channel);
+        locWritePosition = flanger.delayWritePosition;
+        phaseVal = flanger.lfoPhase;
+        int* writePtr = &locWritePosition;
+        float* phasePtr = &phaseVal;
+        
+        /*
+        if (false && channel != 0)
+        {
+            phase = fmodf(phase + 0.25f, 1.0f);
+        }*/ //stereo option
+        
+        for (int sample = 0; sample < numSamples; ++sample) // Goes through all samples in buffer
         {
             // *Note: ASPIK works with double while JUCE works with float, how to integrate?
+            updateParameters(channel);
+            /*
+            const float in = channelData[sample];
+            float out = 0.0f;
 
-            // Test processing
-            //channelData[sample] = channelData[sample] * Decibels::decibelsToGain(-20.0);
+            float localDelayTime = (0.0025f + 0.001f * flanger.lfo(phase, 1)) * (float)getSampleRate();
+            
+            float readPosition = fmodf((float)localWritePosition - localDelayTime + (float)delayBufferSamples, delayBufferSamples);
+            int localReadPosition = floorf(readPosition);
 
+            // Cubic Interpolation
+            float fraction = readPosition - (float)localReadPosition;
+            float fractionSqrt = fraction * fraction;
+            float fractionCube = fractionSqrt * fraction;
+
+            float sample0 = delayData[(localReadPosition - 1 + delayBufferSamples) % delayBufferSamples];
+            float sample1 = delayData[(localReadPosition + 0)];
+            float sample2 = delayData[(localReadPosition + 1) % delayBufferSamples];
+            float sample3 = delayData[(localReadPosition + 2) % delayBufferSamples];
+
+            float a0 = -0.5f * sample0 + 1.5f * sample1 - 1.5f * sample2 + 0.5f * sample3;
+            float a1 = sample0 - 2.5f * sample1 + 2.0f * sample2 - 0.5f * sample3;
+            float a2 = -0.5f * sample0 + 0.5f * sample2;
+            float a3 = sample1;
+            out = a0 * fractionCube + a1 * fractionSqrt + a2 * fraction + a3;
+            
+            //channelData[sample] = in + out * (*treeState.getRawParameterValue(FLANGER_DEPTH_ID) /100.0f); //currentInverted;
+            channelData[sample] = in + out * 1.0f * 1.0f;
+            delayData[localWritePosition] = in + out * 0.1f; //* 0.5f;//currentFeedback;
+
+            if (++localWritePosition >= delayBufferSamples)
+                localWritePosition -= delayBufferSamples;
+
+            phase += 10.0f* inverseSampleRate;
+            if (phase >= 1.0f)
+            {
+                phase -= 1.0f;
+            } */
+            
             // Actual processing
-            updateParameters();
-            channelData[sample] = phaser.processAudioSample(inputData[sample], channel);
-            channelData[sample] = flanger.processAudioSample(inputData[sample], channel);
-            channelData[sample] = channelData[sample] * Decibels::decibelsToGain(Gain);
+            channelData[sample] = flanger.processAudioSample(channelData[sample], writePtr, phasePtr, getSampleRate());
+            //channelData[sample] = phaser.processAudioSample(channelData[sample], channel, getSampleRate());
+            //channelData[sample] = flanger.processAudioSample(channelData[sample], channel, getSampleRate());
+        }
+        if (channel == 0)
+        {
+            phaseMain = phaseVal;
         }
     }
+    flanger.delayWritePosition = locWritePosition;
+    flanger.lfoPhase = phaseMain;
+ 
+    for (int i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
+        buffer.clear(i, 0, buffer.getNumSamples());
 }
 
 //==============================================================================
+/*float PedalEmulatorAudioProcessor::lfo(float phase, int waveform)
+{
+    float out = 0.0f;
+
+    switch (waveform) {
+    case waveformSine: {
+        out = 0.5f + 0.5f * sinf(twoPi * phase);
+        break;
+    }
+    case waveformTriangle: {
+        if (phase < 0.25f)
+            out = 0.5f + 2.0f * phase;
+        else if (phase < 0.75f)
+            out = 1.0f - 2.0f * (phase - 0.25f);
+        else
+            out = 2.0f * (phase - 0.75f);
+        break;
+    }
+    case waveformSawtooth: {
+        if (phase < 0.5f)
+            out = 0.5f + phase;
+        else
+            out = phase - 0.5f;
+        break;
+    }
+    case waveformInverseSawtooth: {
+        if (phase < 0.5f)
+            out = 0.5f - phase;
+        else
+            out = 1.5f - phase;
+        break;
+    }
+    }
+
+    return out;
+}*/
+
+
 bool PedalEmulatorAudioProcessor::hasEditor() const
 {
     return true; // (change this to false if you choose to not supply an editor)

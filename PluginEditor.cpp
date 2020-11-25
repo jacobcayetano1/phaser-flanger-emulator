@@ -21,8 +21,8 @@
 #include "PluginEditor.h"
 
 #define GAIN_ID "gain"
-#define DEPTH_ID "depth"
-#define RATE_ID "rate"
+#define FLANGER_DEPTH_ID "flanger_depth"
+#define PHASER_RATE_ID "phaser_rate"
 #define DRYWET_ID "drywet"
 
 //==============================================================================
@@ -30,28 +30,33 @@ PedalEmulatorAudioProcessorEditor::PedalEmulatorAudioProcessorEditor (PedalEmula
     : AudioProcessorEditor (&p), processor (p)
 {
     // Master Gain
-    sliderAttach = new AudioProcessorValueTreeState::SliderAttachment(processor.treeState, GAIN_ID, gainSlider);
-    gainSlider.setSliderStyle(Slider::SliderStyle::LinearVertical);
-    gainSlider.setTextBoxStyle(Slider::TextBoxBelow, true, 50, 20);
-    gainSlider.setRange(-60.0f, 0.0f, 0.01f); // min, max, increment
-    gainSlider.addListener(this); //this points to AudioProcessorEditor class because that is the class that is listening for changes
+    volumeSliderAttach = new AudioProcessorValueTreeState::SliderAttachment(processor.treeState, GAIN_ID, gainSlider);
     addAndMakeVisible(gainSlider);
+    gainSlider.setSliderStyle(Slider::SliderStyle::LinearVertical);
+    gainSlider.setTextBoxStyle(Slider::TextBoxBelow, true, 100, 20);
+    gainSlider.setTextValueSuffix(" dB");
+    gainSlider.setRange(-60.0f, 0.0f, 0.01f); // min, max, increment
+    gainSlider.setSkewFactorFromMidPoint(-20.0f);
+    addAndMakeVisible(volumeSliderLabel);
+    volumeSliderLabel.setText("Output Volume", juce::dontSendNotification);
+    volumeSliderLabel.attachToComponent(&gainSlider, false);
+    gainSlider.addListener(this); //this points to AudioProcessorEditor class because that is the class that is listening for changes
     
-    // Depth
-    depthValue = new AudioProcessorValueTreeState::SliderAttachment(processor.treeState, DEPTH_ID, depthDial);
-    depthDial.setSliderStyle(Slider::SliderStyle::RotaryVerticalDrag);
-    depthDial.setTextBoxStyle(Slider::TextBoxBelow, true, 50, 20);
-    depthDial.setRange(0.0f, 100.0f);
-    depthDial.addListener(this); //this points to AudioProcessorEditor class because that is the class that is listening for changes
-    addAndMakeVisible(depthDial);
-
-    // Rate
-    rateValue = new AudioProcessorValueTreeState::SliderAttachment(processor.treeState, RATE_ID, rateDial);
-    rateDial.setSliderStyle(Slider::SliderStyle::RotaryVerticalDrag);
-    rateDial.setTextBoxStyle(Slider::TextBoxBelow, true, 50, 20);
-    rateDial.setRange(0.2f, 10.0f, 0.01f);
-    rateDial.addListener(this); //this points to AudioProcessorEditor class because that is the class that is listening for changes
-    addAndMakeVisible(rateDial);
+    // Phaser Rate
+    phaserRateValue = new AudioProcessorValueTreeState::SliderAttachment(processor.treeState, PHASER_RATE_ID, phaserRateDial);
+    phaserRateDial.setSliderStyle(Slider::SliderStyle::RotaryVerticalDrag);
+    phaserRateDial.setTextBoxStyle(Slider::TextBoxBelow, true, 50, 20);
+    phaserRateDial.setRange(0.2f, 10.0f, 0.01f);
+    phaserRateDial.addListener(this); //this points to AudioProcessorEditor class because that is the class that is listening for changes
+    addAndMakeVisible(phaserRateDial);
+    
+    // Flanger Depth
+    flangerDepthValue = new AudioProcessorValueTreeState::SliderAttachment(processor.treeState, FLANGER_DEPTH_ID, flangerDepthDial);
+    flangerDepthDial.setSliderStyle(Slider::SliderStyle::RotaryVerticalDrag);
+    flangerDepthDial.setTextBoxStyle(Slider::TextBoxBelow, true, 50, 20);
+    flangerDepthDial.setRange(0.0f, 100.0f, 0.01f);
+    flangerDepthDial.addListener(this); //this points to AudioProcessorEditor class because that is the class that is listening for changes
+    addAndMakeVisible(flangerDepthDial);
 
     // Dry/Wet mix
     drywetValue = new AudioProcessorValueTreeState::SliderAttachment(processor.treeState, DRYWET_ID, drywetDial);
@@ -89,18 +94,18 @@ void PedalEmulatorAudioProcessorEditor::resized()
     // This is generally where you'll want to lay out the positions of any
     // subcomponents in your editor..
     gainSlider.setBounds((getWidth() / 2 - 50), (getHeight() / 2 - 75), 100, 150);
-    depthDial.setBounds(500, 90, 100, 100);
-    rateDial.setBounds(10, 10, 100, 100);
+    flangerDepthDial.setBounds(500, 90, 100, 100);
+    phaserRateDial.setBounds(10, 10, 100, 100);
     drywetDial.setBounds(600, 90, 100, 100);
 }
 
 void PedalEmulatorAudioProcessorEditor::sliderValueChanged(Slider* slider)
 {
-    if (slider == &gainSlider || slider == &depthDial || slider == &rateDial || slider == &drywetDial) // If slider pointer is the gain slider
+    if (slider == &gainSlider || slider == &flangerDepthDial || slider == &phaserRateDial || slider == &drywetDial) // If slider pointer is the gain slider
     {
         processor.Gain = gainSlider.getValue(); // Gain is set to slider's current value
-        processor.Depth = depthDial.getValue(); // Depth set to dial's current value
-        processor.Rate = rateDial.getValue(); // Rate set to dial's current value
+        processor.flangerDepth = flangerDepthDial.getValue(); // Depth set to dial's current value
+        processor.phaserRate = phaserRateDial.getValue(); // Rate set to dial's current value
         processor.DryWet = drywetDial.getValue(); // Intensity set to dial's current value
     }
 }
