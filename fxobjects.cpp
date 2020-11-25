@@ -856,9 +856,6 @@ bool AudioFilter::calculateFilterCoeffs()
 		float alphaNumerator = tan((kPi * fc) / sampleRate) - 1.0f; // changed to float
 		float alphaDenominator = tan((kPi * fc) / sampleRate) + 1.0f;
 		float alpha = alphaNumerator / alphaDenominator;
-		/*double alphaNumerator = tan((kPi*fc) / sampleRate) - 1.0;
-		double alphaDenominator = tan((kPi*fc) / sampleRate) + 1.0;
-		double alpha = alphaNumerator / alphaDenominator;*/
 
 		// --- update coeffs
 		coeffArray[a0] = alpha;
@@ -1048,6 +1045,20 @@ const SignalGenData LFO::renderAudioOutput()
 
 		// bipolar triagle
 		output.quadPhaseOutput_pos = 2.0f*(float)fabs(output.quadPhaseOutput_pos) - 1.0f;
+	}
+	else if (waveform == generatorWaveform::kLoopingParabola)
+	{
+		// triv saw
+		output.normalOutput = unipolarToBipolar(modCounter);
+
+		// bipolar triagle
+		output.normalOutput = 2.0f * (output.normalOutput * output.normalOutput) - 1.0f;
+
+		// -- quad phase
+		output.quadPhaseOutput_pos = unipolarToBipolar(modCounterQP);
+
+		// bipolar triagle
+		output.quadPhaseOutput_pos = 2.0f * (output.quadPhaseOutput_pos * output.quadPhaseOutput_pos) - 1.0f;
 	}
 	else if (waveform == generatorWaveform::kSaw)
 	{

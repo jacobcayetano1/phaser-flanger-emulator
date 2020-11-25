@@ -98,14 +98,23 @@ float Phaser::processAudioSample(float xn, int channel, double _sampleRate)
 	float K = phaserStructure.intensity / 100.0;
 	float alpha0 = 1.0 / (1.0 + K * gamma4);
 
+	float Sn;
 	// Create combined feedback
-	float Sn = gamma3 * apf[0].getS_value(channel) +
-		gamma2 * apf[1].getS_value(channel) +
-		gamma1 * apf[2].getS_value(channel) +
-		apf[3].getS_value(channel);
+	if (phaserStructure.phaserFeedbackSwitch)
+	{
+		Sn = gamma3 * apf[0].getS_value(channel) +
+			gamma2 * apf[1].getS_value(channel);
+	}
+	else
+	{
+		Sn = gamma3 * apf[0].getS_value(channel) +
+			gamma2 * apf[1].getS_value(channel) +
+			gamma1 * apf[2].getS_value(channel) +
+			apf[3].getS_value(channel);
+	}
 
 	// Form input to first APF
-	float u = alpha0 * (xn + K * Sn); // + or - ?
+	float u = alpha0 * (xn + K * Sn);
 
 	// Cascade of APFs
 	float apf0_out = apf[0].processAudioSample(u, channel, _sampleRate);
@@ -113,13 +122,12 @@ float Phaser::processAudioSample(float xn, int channel, double _sampleRate)
 	float apf2_out = apf[2].processAudioSample(apf1_out, channel, _sampleRate);
 	float apf3_out = apf[3].processAudioSample(apf2_out, channel, _sampleRate);
 
-	// Sum with -3db coeffs
-	//return 0.707 * xn + 0.707 * apf3_out;
 	// Sum with national semiconductor design ratio
 	// return 0.5*xn + 5.0 * apf3_out;
 	// return 0.25*xn + 2.5 * apf3_out;
 	//return 0.125 * xn + 1.25 * apf3_out;
-	return (1.0 - (phaserStructure.drywet / 100)) * xn + (phaserStructure.drywet / 100) * apf3_out;
+	//return apf3_out;
+	return 0.707 * xn + 0.707 * apf3_out;
 }
 
 bool Phaser::canProcessAudioFrame() { return false; }

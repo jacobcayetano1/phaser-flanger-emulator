@@ -69,48 +69,50 @@ public:
 
     // Parameters
     AudioProcessorValueTreeState treeState;
-    float Gain;
-    float flangerDepth;
-    float phaserRate;
-    float DryWet;
+    //UndoManager undoManager;
     
-    float previousGain;
+    // Flanger variables
+    int locWritePosition;
+    float phaseVal;
+    float phaseMain;
 
+    // Overall
+    float Gain;
+    float previousGain;
+    float dryWetMix;
+    float mixedOut;
+    bool routePhaserFirst;
+
+    // Phaser
+    float phaserRate;
+    bool bypassPhaser;
+    bool phaserSwitch;
+
+    // Flanger
+    bool bypassFlanger;
+    float flangerDepth;
+    float flangerRate;
+    float flangerFeedback;
+    bool flangerInverted;
+    
     Phaser phaser;
     Flanger flanger;
     static const int kChannels = 2; // 2 channels
-
-    //float s0, s1, s2, s3;
-    //float* delayData;
-
-    /*
-    AudioSampleBuffer delayBuffer;
-    int delayBufferSamples;
-    int delayBufferChannels;
-    int delayWritePosition;
-
-    float lfoPhase;
-    float inverseSampleRate;
-    float twoPi;
-    */
 
 protected:
     
     void updateParameters(int channel)
     {
-        PhaserStruct phaserParams = phaser.getParameters();
-        //ModulatedDelayParameters flangerParams = flanger.getParameters();
-        // Change to user controlled parameters
-        // --- Phaser
-        phaserParams.lfoRate = phaserRate;
-        //phaserParams.drywet = DryWet; // Do not allow user to change intensity, messes up sound
-        // --- Flanger
-        //flangerParams.lfoDepth_Pct = flangerDepth;
-        //flangerParams.lfoRate_Hz = 10.0f;
-        // Higher depth and rate cause noise and artifacts
+        // Gain is updated outside of this function
 
+        // Phaser
+        PhaserStruct phaserParams = phaser.getParameters();
+        phaserParams.lfoRate = phaserRate;
+        phaserParams.phaserFeedbackSwitch = phaserSwitch;
         phaser.setParameters(phaserParams);
-        //flanger.setParameters(flangerParams,channel);
+
+        // Flanger
+        flanger.setParameters(flangerDepth, flangerRate, flangerFeedback, flangerInverted);
     }
 private:
     //==============================================================================

@@ -25,17 +25,35 @@
 // Defines
 #define GAIN_ID "gain"
 #define GAIN_NAME "Gain"
+#define ROUTE_PHASER_FIRST_ID "route_phaser_first"
+#define ROUTE_PHASER_FIRST_NAME "routePhaserFirst"
+#define DRYWET_ID "dry_wet"
+#define DRYWET_NAME "dryWet"
+
 #define PHASER_RATE_ID "phaser_rate"
 #define PHASER_RATE_NAME "phaserRate"
+#define BYPASS_PHASER_ID "bypass_phaser"
+#define BYPASS_PHASER_NAME "bypassPhaser"
+#define PHASER_FEEDBACK_SWITCH_ID "phaser_feedback_switch"
+#define PHASER_FEEDBACK_SWITCH_NAME "phaserFeedbackSwitch"
+
+#define BYPASS_FLANGER_ID "bypass_flanger"
+#define BYPASS_FLANGER_NAME "bypassFlanger"
 #define FLANGER_DEPTH_ID "flanger_depth"
 #define FLANGER_DEPTH_NAME "flangerDepth"
-#define DRYWET_ID "drywet"
-#define DRYWET_NAME "DryWet"
+#define FLANGER_RATE_ID "flanger_rate"
+#define FLANGER_RATE_NAME "flangerRate"
+#define FLANGER_FEEDBACK_ID "flanger_feedback"
+#define FLANGER_FEEDBACK_NAME "flangerFeedback"
+#define FLANGER_INVERTED_ID "flanger_inverted"
+#define FLANGER_INVERTED_NAME "flangerInverted"
+
+using Parameter = AudioProcessorValueTreeState::Parameter;
 
 //==============================================================================
-PedalEmulatorAudioProcessor::PedalEmulatorAudioProcessor()
+PedalEmulatorAudioProcessor::PedalEmulatorAudioProcessor() :
 #ifndef JucePlugin_PreferredChannelConfigurations
-     : AudioProcessor (BusesProperties()
+     AudioProcessor (BusesProperties()
           #if ! JucePlugin_IsMidiEffect
           #if ! JucePlugin_IsSynth
                 .withInput  ("Input",  AudioChannelSet::stereo(), true)
@@ -43,23 +61,40 @@ PedalEmulatorAudioProcessor::PedalEmulatorAudioProcessor()
                 .withOutput ("Output", AudioChannelSet::stereo(), true)
           #endif
           ),
-      treeState(*this,nullptr)
+           treeState(*this, nullptr)
 #endif
 {
     // Create parameters here
     // treeState.createAndAddParameter(const String &parameterID, const String &parameterName, const String &parameterLabel={}, Category parameterCategory=AudioProcessorParameter::genericParameter)
     // Parameter name = parameter label
+
     NormalisableRange<float> gainRange(-60.0f, 0.0f); // Range creation for gain
     treeState.createAndAddParameter(GAIN_ID, GAIN_NAME, GAIN_NAME, gainRange, 0.0f, nullptr, nullptr); // Gain parameter creation
+
+    NormalisableRange<float> dryWetRange(0.0f, 100.0f);
+    treeState.createAndAddParameter(DRYWET_ID, DRYWET_NAME, DRYWET_NAME, dryWetRange, 100.0f, nullptr, nullptr);
 
     NormalisableRange<float> phaserRateRange(0.2f, 10.0f); // Range creation for rate
     treeState.createAndAddParameter(PHASER_RATE_ID, PHASER_RATE_NAME, PHASER_RATE_NAME, phaserRateRange, 1.0f, nullptr, nullptr); // Rate parameter creation
     
-    NormalisableRange<float> flangerDepthRange(0.0f, 100.0f); // Range creation for depth
-    treeState.createAndAddParameter(FLANGER_DEPTH_ID, FLANGER_DEPTH_NAME, FLANGER_DEPTH_NAME, flangerDepthRange, 100.0f, nullptr, nullptr); // Depth parameter creation
+    NormalisableRange<float> flangerDepthRange(0.0f, 1.0f); // Range creation for depth
+    treeState.createAndAddParameter(FLANGER_DEPTH_ID, FLANGER_DEPTH_NAME, FLANGER_DEPTH_NAME, flangerDepthRange, 1.0f, nullptr, nullptr); // Depth parameter creation
     
-    NormalisableRange<float> drywetRange(0.0f, 100.0f); // Range creation for intensity
-    treeState.createAndAddParameter(DRYWET_ID, DRYWET_NAME, DRYWET_NAME, drywetRange, 100.0f, nullptr, nullptr); // Intensity parameter creation
+    NormalisableRange<float> flangerRateRange(0.0f, 10.0f); // Range creation for intensity
+    treeState.createAndAddParameter(FLANGER_RATE_ID, FLANGER_RATE_NAME, FLANGER_RATE_NAME, flangerRateRange, 1.0f, nullptr, nullptr); // Intensity parameter creation
+
+    NormalisableRange<float> flangerFeedbackRange(0.0f, 0.8f); // Range creation for intensity
+    treeState.createAndAddParameter(FLANGER_FEEDBACK_ID, FLANGER_FEEDBACK_NAME, FLANGER_FEEDBACK_NAME, flangerFeedbackRange, 0.5f, nullptr, nullptr); // Intensity parameter creation
+
+    Range<float> flangerInvertedRange(-1.0f, 1.0f);
+    treeState.createAndAddParameter(FLANGER_INVERTED_ID, FLANGER_INVERTED_NAME, FLANGER_INVERTED_NAME, flangerInvertedRange, 1.0f, nullptr, nullptr);
+
+    // Buttons
+    Range<float> buttonRange(0.0f, 1.0f);
+    treeState.createAndAddParameter(BYPASS_PHASER_ID, BYPASS_PHASER_NAME, BYPASS_PHASER_NAME, buttonRange, 0.0f, nullptr, nullptr);
+    treeState.createAndAddParameter(BYPASS_FLANGER_ID, BYPASS_FLANGER_NAME, BYPASS_FLANGER_NAME, buttonRange, 0.0f, nullptr, nullptr);
+    treeState.createAndAddParameter(ROUTE_PHASER_FIRST_ID, ROUTE_PHASER_FIRST_NAME, ROUTE_PHASER_FIRST_NAME, buttonRange, 0.0f, nullptr, nullptr);
+    treeState.createAndAddParameter(PHASER_FEEDBACK_SWITCH_ID, PHASER_FEEDBACK_SWITCH_NAME, PHASER_FEEDBACK_SWITCH_NAME, buttonRange, 0.0f, nullptr, nullptr);
     
     treeState.state = ValueTree("savedParams"); // Used for saving parameters
 }
@@ -138,25 +173,7 @@ void PedalEmulatorAudioProcessor::prepareToPlay (double sampleRate, int samplesP
     phaser.reset(sampleRate, 0);
     phaser.reset(sampleRate, 1);
     flanger.reset(sampleRate, getTotalNumInputChannels());
-    //flanger.reset(sampleRate, 1);
     previousGain = Decibels::decibelsToGain(*treeState.getRawParameterValue(GAIN_ID)/20);
-    /*
-    float maxDelayTime = 0.02f + 0.02f;
-    delayBufferSamples = (int)(maxDelayTime * (float)sampleRate) + 1;
-    if (delayBufferSamples < 1)
-    {
-        delayBufferSamples = 1;
-    }
-
-    delayBufferChannels = getTotalNumInputChannels();
-    delayBuffer.setSize(delayBufferChannels, delayBufferSamples);
-    delayBuffer.clear();
-
-    delayWritePosition = 0;
-    lfoPhase = 0.0f;
-    inverseSampleRate = 1.0f / (float)sampleRate;
-    twoPi = 2.0f * M_PI;
-    */
 }
 
 void PedalEmulatorAudioProcessor::releaseResources()
@@ -207,20 +224,8 @@ void PedalEmulatorAudioProcessor::processBlock (AudioBuffer<float>& buffer, Midi
         previousGain = currentGain;
     }
 
-    // Make sure to reset the state if your inner loop is processing
-    // the samples and the outer loop is handling the channels.
-    // Alternatively, you can process the samples with the channels
-    // interleaved by keeping the same state.
-    //int lastChannel = 0;
-    //int currentChannel = 0;
-
-    int locWritePosition;
-    float phaseVal;
-    float phaseMain;
-
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
-        //const float* inputData = buffer.getReadPointer(channel);
         float* channelData = buffer.getWritePointer(channel);
         flanger.delayData = flanger.delayBuffer.getWritePointer(channel);
         locWritePosition = flanger.delayWritePosition;
@@ -238,52 +243,43 @@ void PedalEmulatorAudioProcessor::processBlock (AudioBuffer<float>& buffer, Midi
         {
             // *Note: ASPIK works with double while JUCE works with float, how to integrate?
             updateParameters(channel);
-            /*
-            const float in = channelData[sample];
-            float out = 0.0f;
-
-            float localDelayTime = (0.0025f + 0.001f * flanger.lfo(phase, 1)) * (float)getSampleRate();
-            
-            float readPosition = fmodf((float)localWritePosition - localDelayTime + (float)delayBufferSamples, delayBufferSamples);
-            int localReadPosition = floorf(readPosition);
-
-            // Cubic Interpolation
-            float fraction = readPosition - (float)localReadPosition;
-            float fractionSqrt = fraction * fraction;
-            float fractionCube = fractionSqrt * fraction;
-
-            float sample0 = delayData[(localReadPosition - 1 + delayBufferSamples) % delayBufferSamples];
-            float sample1 = delayData[(localReadPosition + 0)];
-            float sample2 = delayData[(localReadPosition + 1) % delayBufferSamples];
-            float sample3 = delayData[(localReadPosition + 2) % delayBufferSamples];
-
-            float a0 = -0.5f * sample0 + 1.5f * sample1 - 1.5f * sample2 + 0.5f * sample3;
-            float a1 = sample0 - 2.5f * sample1 + 2.0f * sample2 - 0.5f * sample3;
-            float a2 = -0.5f * sample0 + 0.5f * sample2;
-            float a3 = sample1;
-            out = a0 * fractionCube + a1 * fractionSqrt + a2 * fraction + a3;
-            
-            //channelData[sample] = in + out * (*treeState.getRawParameterValue(FLANGER_DEPTH_ID) /100.0f); //currentInverted;
-            channelData[sample] = in + out * 1.0f * 1.0f;
-            delayData[localWritePosition] = in + out * 0.1f; //* 0.5f;//currentFeedback;
-
-            if (++localWritePosition >= delayBufferSamples)
-                localWritePosition -= delayBufferSamples;
-
-            phase += 10.0f* inverseSampleRate;
-            if (phase >= 1.0f)
-            {
-                phase -= 1.0f;
-            } */
             
             // Actual processing
-            channelData[sample] = flanger.processAudioSample(channelData[sample], writePtr, phasePtr, getSampleRate());
-            //channelData[sample] = phaser.processAudioSample(channelData[sample], channel, getSampleRate());
-            //channelData[sample] = flanger.processAudioSample(channelData[sample], channel, getSampleRate());
+            if (routePhaserFirst)
+            {
+                if (!bypassPhaser)
+                {
+                    channelData[sample] = ((dryWetMix * 0.01f) * phaser.processAudioSample(channelData[sample], channel, getSampleRate())) +
+                                   ((1.0f - (dryWetMix * 0.01f)) * channelData[sample]);
+                    //channelData[sample] = phaser.processAudioSample(channelData[sample], channel, getSampleRate());
+                }
+                if (!bypassFlanger)
+                {
+                    channelData[sample] = ((dryWetMix * 0.01f) * flanger.processAudioSample(channelData[sample], writePtr, phasePtr, getSampleRate(), channel)) +
+                        ((1.0f - (dryWetMix * 0.01f)) * channelData[sample]);
+                    //channelData[sample] = flanger.processAudioSample(channelData[sample], writePtr, phasePtr, getSampleRate(), channel);
+                }
+            }
+            else
+            {
+                if (!bypassFlanger)
+                {
+                    channelData[sample] = ((dryWetMix * 0.01f) * flanger.processAudioSample(channelData[sample], writePtr, phasePtr, getSampleRate(), channel)) +
+                        ((1.0f - (dryWetMix * 0.01f)) * channelData[sample]);
+                    //channelData[sample] = flanger.processAudioSample(channelData[sample], writePtr, phasePtr, getSampleRate(), channel);
+                }
+                if (!bypassPhaser)
+                {
+                    channelData[sample] = ((dryWetMix * 0.01f) * phaser.processAudioSample(channelData[sample], channel, getSampleRate())) +
+                        ((1.0f - (dryWetMix * 0.01f)) * channelData[sample]);
+                    //channelData[sample] = phaser.processAudioSample(channelData[sample], channel, getSampleRate());
+                }
+                
+            }
         }
         if (channel == 0)
         {
-            phaseMain = phaseVal;
+            phaseMain = phaseVal; // Flanger variables for LFO
         }
     }
     flanger.delayWritePosition = locWritePosition;
@@ -292,45 +288,6 @@ void PedalEmulatorAudioProcessor::processBlock (AudioBuffer<float>& buffer, Midi
     for (int i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear(i, 0, buffer.getNumSamples());
 }
-
-//==============================================================================
-/*float PedalEmulatorAudioProcessor::lfo(float phase, int waveform)
-{
-    float out = 0.0f;
-
-    switch (waveform) {
-    case waveformSine: {
-        out = 0.5f + 0.5f * sinf(twoPi * phase);
-        break;
-    }
-    case waveformTriangle: {
-        if (phase < 0.25f)
-            out = 0.5f + 2.0f * phase;
-        else if (phase < 0.75f)
-            out = 1.0f - 2.0f * (phase - 0.25f);
-        else
-            out = 2.0f * (phase - 0.75f);
-        break;
-    }
-    case waveformSawtooth: {
-        if (phase < 0.5f)
-            out = 0.5f + phase;
-        else
-            out = phase - 0.5f;
-        break;
-    }
-    case waveformInverseSawtooth: {
-        if (phase < 0.5f)
-            out = 0.5f - phase;
-        else
-            out = 1.5f - phase;
-        break;
-    }
-    }
-
-    return out;
-}*/
-
 
 bool PedalEmulatorAudioProcessor::hasEditor() const
 {

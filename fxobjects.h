@@ -1641,7 +1641,6 @@ class APF : public AudioFilter //APF specialized for Phaser
 public:
 	APF()
 	{
-		// Initialize APF parameters that were declared in APF.h
 		audioFilterParameters.algorithm = filterAlgorithm::kAPF1;
 		audioFilterParameters.fc = 1000.0; // 20 kHz
 		audioFilterParameters.Q = 20; // Quality factor
@@ -3056,7 +3055,7 @@ Use this strongly typed enum to easily set the oscillator waveform
 \version Revision : 1.0
 \date Date : 2018 / 09 / 7
 */
-enum class generatorWaveform { kTriangle, kSin, kSaw };
+enum class generatorWaveform { kTriangle, kSin, kSaw, kLoopingParabola };
 
 /**
 \struct OscillatorParameters
@@ -3718,19 +3717,21 @@ const unsigned int PHASER_STAGES = 6;
 // --- these are the exact values from the National Semiconductor Phaser design (Changed to new values)
 // Min and max phaser rotation frequencies
 
-const double apf0_minF = 32.0;
-const double apf0_maxF = 300.0; // Originally 1500.0
+// Goal: Bottom notch goes between 30-300Hz, top notch 300-1900Hz
 
-const double apf1_minF = 68.0;
-const double apf1_maxF = 700.0; //Originally 2500
+const double apf0_minF = 100.0; // 100
+const double apf0_maxF = 500.0; // 500
 
-const double apf2_minF = 96.0;
-const double apf2_maxF = 1200.0; // Originally 4800.0
+const double apf1_minF = 150.0; // 150
+const double apf1_maxF = 900.0; // 900
 
-const double apf3_minF = 212.0;
-const double apf3_maxF = 2000.0; // Originally 10000.0
+const double apf2_minF = 200.0; // 200
+const double apf2_maxF = 1200.0; // 1200
 
-const double apf4_minF = 320.0;
+const double apf3_minF = 250.0; // 250
+const double apf3_maxF = 1500.0; // 1500
+
+const double apf4_minF = 320.0; // 320
 const double apf4_maxF = 16000.0;
 
 const double apf5_minF = 636.0;

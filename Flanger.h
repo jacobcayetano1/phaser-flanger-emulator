@@ -21,25 +21,24 @@
 
 #pragma once
 
-//#include "fxobjects.h"
 #include <JuceHeader.h>
+#include "fxobjects.h"
 
 class Flanger
 {
 public:
-	Flanger(void)
-	{
-
-	};
+	Flanger(void){};
 	~Flanger(void) {};
 
 	bool reset(double sampleRate, int inputChannels);
 
+	void setParameters(float flangerDepth, float flangerRate, float flangerFeedback, bool flangerInverted);
+
 	float lfo(float phase, int waveform);
 
-	float processAudioSample(float xn, int* localWritePosition, float* phase, double sampleRate);
+	float processAudioSample(float xn, int* localWritePosition, float* phase, double sampleRate, int channel);
     
-    enum waveformIndex {
+    enum waveformType {
         waveformSine = 0,
         waveformTriangle,
         waveformSawtooth,
@@ -49,13 +48,22 @@ public:
     AudioSampleBuffer delayBuffer;
 	float* delayData;
     int delayBufferSamples;
-    //int delayBufferChannels;
     int delayWritePosition;
 
-    float lfoPhase;
+	float lfoPhase;
+
+protected:
+	
+	float flangerDepth_internal;
+	float flangerRate_internal;
+	float flangerFeedback_internal;
+	float flangerInverted_internal;
+    
     float inverseSampleRate;
     float twoPi;
-protected:
+
+	AudioFilter flangerLowShelf;
+
 private:
 };
 

@@ -36,7 +36,7 @@ struct PhaserStruct {
 		lfoDepth = pStruct.lfoDepth;
 		intensity = pStruct.intensity;
 		quadPhaseLFO = pStruct.quadPhaseLFO;
-		drywet = pStruct.drywet;
+		phaserFeedbackSwitch = pStruct.phaserFeedbackSwitch;
 
 		return *this;
 	}
@@ -44,10 +44,9 @@ struct PhaserStruct {
 	// LFO parameters
 	float lfoRate = 1.0f;
 	float lfoDepth = 100.0f;
-	float intensity = 75.0f;
+	float intensity = 100.0f;
 	bool quadPhaseLFO = false;
-
-	float drywet = 100.0f;
+	bool phaserFeedbackSwitch = false;
 };
 
 class Phaser : public IAudioSignalProcessor
@@ -56,7 +55,7 @@ public:
 	Phaser(void)
 	{
 		OscillatorParameters lfoParams = lfo.getParameters();
-		lfoParams.waveform = generatorWaveform::kTriangle; // kTriangle, kSin, kSaw
+		lfoParams.waveform = generatorWaveform::kLoopingParabola; // kTriangle, kSin, kSaw
 		lfo.setParameters(lfoParams);
 
 		AudioFilterParameters filterParams = apf[0].getParameters();
